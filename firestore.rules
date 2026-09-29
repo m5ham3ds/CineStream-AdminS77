@@ -1,0 +1,292 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Official authoritative check against /admins/{uid} collection + Owner bootstrap
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'sulopros01@gmail.com' ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true)
+      );
+    }
+
+    // Sensitive administrative fields that standard users are strictly forbidden from modifying
+    function modifyingSensitiveUserFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role',
+        'isPremium',
+        'subscriptionTier',
+        'subscriptionStatus',
+        'subscriptionExpiresAt',
+        'isPro',
+        'proExpiresAt',
+        'proPlan',
+        'plan',
+        'isActive',
+        'isBanned',
+        'banReason',
+        'banExpiresAt',
+        'canWatch',
+        'canDownload',
+        'canChat',
+        'canStory',
+        'canP2P',
+        'canComment',
+        'canUpload',
+        'canRequest',
+        'watchBan',
+        'downloadBan',
+        'chatBan',
+        'storyBan',
+        'p2pBan',
+        'deviceLimit',
+        'maxDevices',
+        'allowedQuality',
+        'downloadLimit',
+        'offlineDaysOverride',
+        'forcedAdsOverride',
+        'uid',
+        'id',
+        'createdAt',
+        'admin',
+        'isAdmin'
+      ]);
+    }
+
+    // Enforce safe default constraints when a user registers and provisions their own document
+    function hasSafeUserCreationDefaults(userId) {
+      let data = request.resource.data;
+      return isOwner(userId) &&
+        (!('uid' in data) || data.uid == userId) &&
+        (!('id' in data) || data.id == userId) &&
+        (!('role' in data) || data.role == 'user') &&
+        (!('admin' in data) || data.admin == false) &&
+        (!('isAdmin' in data) || data.isAdmin == false) &&
+        (!('isPremium' in data) || data.isPremium == false) &&
+        (!('subscriptionTier' in data) || data.subscriptionTier == 'free') &&
+        (!('subscriptionStatus' in data) || data.subscriptionStatus == 'active' || data.subscriptionStatus == 'free') &&
+        (!('subscriptionExpiresAt' in data) || data.subscriptionExpiresAt == null) &&
+        (!('isPro' in data) || data.isPro == false) &&
+        (!('proExpiresAt' in data) || data.proExpiresAt == null) &&
+        (!('proPlan' in data) || data.proPlan == null || data.proPlan == '') &&
+        (!('plan' in data) || data.plan == 'free' || data.plan == null) &&
+        (!('isActive' in data) || data.isActive == true) &&
+        (!('isBanned' in data) || data.isBanned == false) &&
+        (!('banReason' in data) || data.banReason == null || data.banReason == '') &&
+        (!('banExpiresAt' in data) || data.banExpiresAt == null) &&
+        (!('canWatch' in data) || data.canWatch == true) &&
+        (!('canDownload' in data) || data.canDownload == true) &&
+        (!('canChat' in data) || data.canChat == true) &&
+        (!('canStory' in data) || data.canStory == true) &&
+        (!('canP2P' in data) || data.canP2P == true) &&
+        (!('canComment' in data) || data.canComment == true) &&
+        (!('canUpload' in data) || data.canUpload == false) &&
+        (!('canRequest' in data) || data.canRequest == true) &&
+        (!('watchBan' in data) || data.watchBan == false) &&
+        (!('downloadBan' in data) || data.downloadBan == false) &&
+        (!('chatBan' in data) || data.chatBan == false) &&
+        (!('storyBan' in data) || data.storyBan == false) &&
+        (!('p2pBan' in data) || data.p2pBan == false) &&
+        (!('deviceLimit' in data) || data.deviceLimit <= 2) &&
+        (!('maxDevices' in data) || data.maxDevices <= 2) &&
+        (!('allowedQuality' in data) || data.allowedQuality == null) &&
+        (!('downloadLimit' in data) || data.downloadLimit == null) &&
+        (!('offlineDaysOverride' in data) || data.offlineDaysOverride == null) &&
+        (!('forcedAdsOverride' in data) || data.forcedAdsOverride == null);
+    }
+
+    // --- Admins Collection ---
+    match /admins/{adminUid} {
+      allow read: if isAuthenticated() && (request.auth.uid == adminUid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Admins can read all users; standard users can only read their own profile
+      allow read: if isAdmin() || isOwner(userId);
+
+      // Create: Admins can provision profiles; users can create their own doc on registration with safe defaults
+      allow create: if isAdmin() || hasSafeUserCreationDefaults(userId);
+
+      // Update: Admins can update any field; users can only update non-sensitive profile fields
+      allow update: if isAdmin() || (
+        isOwner(userId) && !modifyingSensitiveUserFields()
+      );
+
+      // Delete: Only admins can delete user records
+      allow delete: if isAdmin();
+
+      // User subcollections (history, bookmarks, devices, favorites, etc.)
+      match /{subcollection}/{docId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow write: if isAdmin() || isOwner(userId);
+      }
+    }
+
+    // --- App & Global System Configuration ---
+    match /config/{configId} {
+      // Anyone authenticated can read global config (e.g. maintenance status, latest OTA version)
+      allow read: if isAuthenticated();
+      // Only admins can modify configuration
+      allow write: if isAdmin();
+    }
+
+    // --- Managed Extensions (Canonical v1) ---
+    match /managed_extensions/{extensionId} {
+      // Authenticated users can read the catalog; only authoritative admins can publish or modify
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /{subcollection}/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
+
+    // --- Legacy Extensions Management (Deprecation phase) ---
+    match /extensions/{extensionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /extension_updates/{updateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- App Updates ---
+    match /app_updates/{updateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Notifications Management ---
+    match /notifications/{notificationId} {
+      // Users can read in-app broadcasts; only admins can create or update them
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Audit Logs ---
+    match /auditLogs/{logId} {
+      // Only admins can view or append audit logs
+      allow read, write: if isAdmin();
+    }
+
+    // --- Reports Collection ---
+    match /reports/{reportId} {
+      // Users can submit reports and read their own submitted reports; Admins can read all reports
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+
+      // Create: Standard users can submit reports for their own UID with status PENDING and no resolution forgery
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        (request.resource.data.status == 'PENDING' || request.resource.data.status == 'pending') &&
+        (!('resolvedBy' in request.resource.data) || request.resource.data.resolvedBy == '' || request.resource.data.resolvedBy == null) &&
+        (!('resolvedAt' in request.resource.data) || request.resource.data.resolvedAt == null) &&
+        (!('resolutionNotes' in request.resource.data) || request.resource.data.resolutionNotes == '' || request.resource.data.resolutionNotes == null)
+      );
+
+      // Update & Delete: Exclusively admins (users cannot modify, resolve, or delete reports)
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Support Conversations (User Support System) ---
+    match /support_conversations/{conversationId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId
+      );
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/support_conversations/$(conversationId)).data.userId == request.auth.uid);
+        allow create: if isAdmin() || (
+          isAuthenticated() &&
+          get(/databases/$(database)/documents/support_conversations/$(conversationId)).data.userId == request.auth.uid &&
+          request.resource.data.senderId == request.auth.uid &&
+          (!('senderRole' in request.resource.data) || request.resource.data.senderRole == 'user')
+        );
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // --- Pro Subscription Upgrade Requests (Phase C4) ---
+    match /pro_requests/{requestId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        (request.resource.data.status == 'PENDING' || request.resource.data.status == 'pending' || !('status' in request.resource.data)) &&
+        (!('reviewedBy' in request.resource.data) || request.resource.data.reviewedBy == '' || request.resource.data.reviewedBy == null) &&
+        (!('reviewedAt' in request.resource.data) || request.resource.data.reviewedAt == null) &&
+        (!('rejectionReason' in request.resource.data) || request.resource.data.rejectionReason == '' || request.resource.data.rejectionReason == null)
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Social Chat: User-to-User Conversations (Users App ecosystem) ---
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated() && (
+        ('participants' in resource.data && request.auth.uid in resource.data.participants) ||
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        ('participants' in request.resource.data && request.auth.uid in request.resource.data.participants) ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        ('participants' in resource.data && request.auth.uid in resource.data.participants) ||
+        resource.data.userId == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        ('ownerId' in resource.data && resource.data.ownerId == request.auth.uid)
+      );
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (
+          ('participants' in get(/databases/$(database)/documents/conversations/$(conversationId)).data &&
+           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants) ||
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid
+        );
+        allow create: if isAuthenticated() &&
+          request.resource.data.senderId == request.auth.uid && (
+            ('participants' in get(/databases/$(database)/documents/conversations/$(conversationId)).data &&
+             request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants) ||
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid
+          );
+        allow update, delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // --- User Stories & Video Clips (Users App ecosystem) ---
+    match /stories/{storyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Deny access to any other unspecified collection
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -1,0 +1,12 @@
+{
+  "name": "cinestream-admin-firestore-tests",
+  "version": "1.0.0",
+  "description": "CineStream Admin Phase C7 Security Rules Tests",
+  "scripts": {
+    "test": "mocha --timeout 30000 firestore-rules.test.js"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "mocha": "^11.1.0"
+  }
+}
