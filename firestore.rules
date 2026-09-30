@@ -135,12 +135,25 @@ service cloud.firestore {
       }
     }
 
-    // --- App & Global System Configuration ---
-    match /config/{configId} {
-      // Anyone authenticated can read global config (e.g. maintenance status, latest OTA version)
+    // --- App Configuration ---
+    match /config/app {
+      // Anyone authenticated can read app config (e.g. maintenance status, latest OTA version)
       allow read: if isAuthenticated();
-      // Only admins can modify configuration
+      // Only admins can modify app configuration
       allow write: if isAdmin();
+    }
+
+    // --- Search Order Configuration (Phase EXT-RULES-01) ---
+    match /config/search_order {
+      // Authenticated users (Users App & Admin App) can read search order
+      allow read: if isAuthenticated();
+      // Only authoritative admins can modify search order
+      allow write: if isAdmin();
+    }
+
+    // Deny all other unspecified /config documents
+    match /config/{document=**} {
+      allow read, write: if false;
     }
 
     // --- Managed Extensions (Canonical v1) ---

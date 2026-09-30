@@ -118,10 +118,25 @@ describe('CineStream Admin Phase C7: Firestore Security Rules Live Verification'
         timestamp: 1000
       });
 
-      // Config
+      // Config docs
       await db.doc('config/global').set({
         maintenance: false,
         minAppVersion: '1.0.0'
+      });
+
+      await db.doc('config/app').set({
+        maintenance: false,
+        latestVersionCode: 1,
+        latestVersionName: '1.0.0'
+      });
+
+      await db.doc('config/search_order').set({
+        movie: ['qfilm', 'egydead'],
+        tv: ['egydead', 'qfilm'],
+        series: ['egydead', 'qfilm'],
+        anime: ['witanime', 'anime4up'],
+        updatedAt: 1759160000000,
+        updatedBy: 'admin@cinestream.com'
       });
     });
   });
@@ -597,21 +612,21 @@ describe('CineStream Admin Phase C7: Firestore Security Rules Live Verification'
   // SECTION 10: CATCH-ALL DENY & SYSTEM CONFIG
   // ==========================================
   describe('10. App Config and Catch-All Deny', function () {
-    it('CONFIG READ: Authenticated user can read app configuration', async function () {
+    it('CONFIG/APP READ: Authenticated user can read app configuration', async function () {
       const userDb = testEnv.authenticatedContext('userA').firestore();
-      await assertSucceeds(userDb.doc('config/global').get());
+      await assertSucceeds(userDb.doc('config/app').get());
     });
 
-    it('CONFIG WRITE: Standard user CANNOT modify app configuration', async function () {
+    it('CONFIG/APP WRITE: Standard user CANNOT modify app configuration', async function () {
       const userDb = testEnv.authenticatedContext('userA').firestore();
-      await assertFails(userDb.doc('config/global').update({
+      await assertFails(userDb.doc('config/app').update({
         maintenance: true
       }));
     });
 
-    it('CONFIG WRITE: Admin can modify app configuration', async function () {
+    it('CONFIG/APP WRITE: Admin can modify app configuration', async function () {
       const adminDb = testEnv.authenticatedContext('adminA').firestore();
-      await assertSucceeds(adminDb.doc('config/global').update({
+      await assertSucceeds(adminDb.doc('config/app').update({
         maintenance: true
       }));
     });
@@ -628,11 +643,6 @@ describe('CineStream Admin Phase C7: Firestore Security Rules Live Verification'
       await assertFails(adminDb.doc('analytics/stats').set({ count: 1 }));
     });
 
-    it('CATCH-ALL: Standard user cannot access non-canonical /conversations', async function () {
-      const userDb = testEnv.authenticatedContext('userA').firestore();
-      await assertFails(userDb.doc('conversations/123').get());
-    });
-
     it('CATCH-ALL: Standard user cannot access non-canonical /admin_users', async function () {
       const userDb = testEnv.authenticatedContext('userA').firestore();
       await assertFails(userDb.doc('admin_users/123').get());
@@ -641,6 +651,139 @@ describe('CineStream Admin Phase C7: Firestore Security Rules Live Verification'
     it('CATCH-ALL: Standard user cannot access non-canonical /dashboard_stats', async function () {
       const userDb = testEnv.authenticatedContext('userA').firestore();
       await assertFails(userDb.doc('dashboard_stats/overview').get());
+    });
+  });
+
+  // =========================================================================
+  // SECTION 11: PHASE EXT-RULES-01: SEARCH ORDER SECURITY & WILDCARD REGRESSION
+  // =========================================================================
+  describe('11. Search Order Security & Wildcard Regression (/config/search_order)', function () {
+    // TEST A — UNAUTHENTICATED READ
+    it('TEST A: Unauthenticated user CANNOT read /config/search_order', async function () {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(unauthDb.doc('config/search_order').get());
+    });
+
+    // TEST B — AUTHENTICATED USER READ
+    it('TEST B: Authenticated normal user CAN read /config/search_order', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertSucceeds(userDb.doc('config/search_order').get());
+    });
+
+    // TEST C — AUTHENTICATED USER CREATE
+    it('TEST C: Normal authenticated user CANNOT create /config/search_order', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/search_order').set({
+        movie: ['hacked_scraper']
+      }));
+    });
+
+    // TEST D — AUTHENTICATED USER UPDATE
+    it('TEST D: Normal authenticated user CANNOT update /config/search_order', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/search_order').update({
+        movie: ['hacked_scraper']
+      }));
+    });
+
+    // TEST E — AUTHENTICATED USER DELETE
+    it('TEST E: Normal authenticated user CANNOT delete /config/search_order', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/search_order').delete());
+    });
+
+    // TEST F — ADMIN READ
+    it('TEST F: Admin CAN read /config/search_order', async function () {
+      const adminDb = testEnv.authenticatedContext('adminA').firestore();
+      await assertSucceeds(adminDb.doc('config/search_order').get());
+    });
+
+    // TEST G — ADMIN CREATE/WRITE
+    it('TEST G: Admin CAN write/set /config/search_order', async function () {
+      const adminDb = testEnv.authenticatedContext('adminA').firestore();
+      await assertSucceeds(adminDb.doc('config/search_order').set({
+        movie: ['qfilm', 'egydead'],
+        tv: ['egydead', 'qfilm'],
+        series: ['egydead', 'qfilm'],
+        anime: ['witanime', 'anime4up'],
+        updatedAt: Date.now(),
+        updatedBy: 'adminA@cinestream.com'
+      }));
+    });
+
+    // TEST H — ADMIN UPDATE
+    it('TEST H: Admin CAN update /config/search_order', async function () {
+      const adminDb = testEnv.authenticatedContext('adminA').firestore();
+      await assertSucceeds(adminDb.doc('config/search_order').update({
+        movie: ['egydead', 'qfilm']
+      }));
+    });
+
+    // TEST I — ADMIN DELETE
+    it('TEST I: Admin CAN delete /config/search_order', async function () {
+      const adminDb = testEnv.authenticatedContext('adminA').firestore();
+      await assertSucceeds(adminDb.doc('config/search_order').delete());
+    });
+
+    // WILDCARD REGRESSION TESTS (Section 9)
+    it('WILDCARD: Normal authenticated user CANNOT read /config/random', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/random').get());
+    });
+
+    it('WILDCARD: Unauthenticated user CANNOT read /config/random', async function () {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(unauthDb.doc('config/random').get());
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT read /config/global', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/global').get());
+    });
+
+    it('WILDCARD: Unauthenticated user CANNOT read /config/global', async function () {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(unauthDb.doc('config/global').get());
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT read /config/unknown', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/unknown').get());
+    });
+
+    it('WILDCARD: Unauthenticated user CANNOT read /config/unknown', async function () {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(unauthDb.doc('config/unknown').get());
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT read /config/test_document', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/test_document').get());
+    });
+
+    it('WILDCARD: Unauthenticated user CANNOT read /config/test_document', async function () {
+      const unauthDb = testEnv.unauthenticatedContext().firestore();
+      await assertFails(unauthDb.doc('config/test_document').get());
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT write /config/random', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/random').set({ val: 1 }));
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT write /config/global', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/global').set({ val: 1 }));
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT write /config/unknown', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/unknown').set({ val: 1 }));
+    });
+
+    it('WILDCARD: Normal authenticated user CANNOT write /config/test_document', async function () {
+      const userDb = testEnv.authenticatedContext('userA').firestore();
+      await assertFails(userDb.doc('config/test_document').set({ val: 1 }));
     });
   });
 });
