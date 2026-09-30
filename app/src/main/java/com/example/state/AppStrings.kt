@@ -301,6 +301,7 @@ object AppStrings {
     fun featureRestrictionsSection(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "قيود الميزات والخدمات الفردية" else "Individual Feature Restrictions"
 
     // Phase C2: Managed Extensions
+    fun extensionsSettings(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إعدادات الإضافات" else "Extensions Settings"
     fun managedExtensions(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إضافات الكشط المُدارة" else "Managed Extensions"
     fun managedExtensionsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إعدادات المصادر الديناميكية للمشغّل" else "Dynamic scraper catalog & configuration"
     fun managedExtensionsBanner(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إضافات الكشط المُدارة هي إعدادات برمجية نقية لمصادر Kotlin المضمّنة بالتطبيق. لا تتضمن تثبيت ملفات APK أو تحميل أكواد خارجية." else "Managed Extensions are pure configuration for bundled Kotlin scrapers. No APK installation or dynamic class loading."

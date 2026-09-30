@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +81,7 @@ fun ManagedExtensionsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = DarkBackground,
         floatingActionButton = {
@@ -106,332 +108,335 @@ fun ManagedExtensionsScreen(
         AdaptiveScreenContainer(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
             ) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = AppStrings.managedExtensions(currentLang),
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = AppStrings.managedExtensionsSubtitle(currentLang),
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { viewModel.seedDefaultScrapers() },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CloudSync,
-                                contentDescription = if (currentLang == AppLanguage.ARABIC) "مزامنة المصادر الافتراضية" else "Sync Default Scrapers",
-                                tint = MetricPurple
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        CineStreamRefreshButton(
-                            isRefreshing = isRefreshing,
-                            onClick = { viewModel.refresh() },
-                            contentDescription = AppStrings.refresh(currentLang)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Navigation Pill Tabs: Switch between Catalog & Search Order
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(DarkSurfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(CineStreamRed, RoundedCornerShape(10.dp))
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Hub, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(AppStrings.tabExtensions(currentLang), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { onNavigateToSearchOrder() }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Sort, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(AppStrings.tabSearchOrder(currentLang), color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Informational Architecture Banner (Pure Config Guarantee)
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
-                    shape = RoundedCornerShape(12.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                item(key = "header") {
+                    // Header Row
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = MetricGreen,
-                            modifier = Modifier.size(22.dp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = AppStrings.managedExtensions(currentLang),
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = AppStrings.managedExtensionsSubtitle(currentLang),
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { viewModel.seedDefaultScrapers() },
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CloudSync,
+                                    contentDescription = if (currentLang == AppLanguage.ARABIC) "مزامنة المصادر الافتراضية" else "Sync Default Scrapers",
+                                    tint = MetricPurple
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            CineStreamRefreshButton(
+                                isRefreshing = isRefreshing,
+                                onClick = { viewModel.refresh() },
+                                contentDescription = AppStrings.refresh(currentLang)
+                            )
+                        }
+                    }
+                }
+
+                item(key = "tabs") {
+                    // Navigation Pill Tabs: Switch between Catalog & Search Order
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkSurfaceVariant, RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(CineStreamRed, RoundedCornerShape(10.dp))
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Hub, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(AppStrings.tabExtensions(currentLang), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onNavigateToSearchOrder() }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Sort, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(AppStrings.tabSearchOrder(currentLang), color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+
+                item(key = "banner") {
+                    // Informational Architecture Banner (Pure Config Guarantee)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
+                        shape = RoundedCornerShape(12.dp),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = MetricGreen,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = AppStrings.managedExtensionsBanner(currentLang),
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                item(key = "metrics") {
+                    // Metric Summary Pills
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MetricSummaryPill(
+                            label = if (currentLang == AppLanguage.ARABIC) "الإجمالي" else "Total",
+                            value = totalCount.toString(),
+                            color = MetricBlue,
+                            modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = AppStrings.managedExtensionsBanner(currentLang),
-                            fontSize = 11.sp,
+                        MetricSummaryPill(
+                            label = if (currentLang == AppLanguage.ARABIC) "نشط" else "Active",
+                            value = activeCount.toString(),
+                            color = MetricGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricSummaryPill(
+                            label = if (currentLang == AppLanguage.ARABIC) "صيانة" else "Maint.",
+                            value = maintenanceCount.toString(),
+                            color = WarningOrange,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricSummaryPill(
+                            label = if (currentLang == AppLanguage.ARABIC) "معطل" else "Disabled",
+                            value = disabledCount.toString(),
                             color = TextSecondary,
-                            lineHeight = 16.sp
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Metric Summary Pills
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MetricSummaryPill(
-                        label = if (currentLang == AppLanguage.ARABIC) "الإجمالي" else "Total",
-                        value = totalCount.toString(),
-                        color = MetricBlue,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricSummaryPill(
-                        label = if (currentLang == AppLanguage.ARABIC) "نشط" else "Active",
-                        value = activeCount.toString(),
-                        color = MetricGreen,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricSummaryPill(
-                        label = if (currentLang == AppLanguage.ARABIC) "صيانة" else "Maint.",
-                        value = maintenanceCount.toString(),
-                        color = WarningOrange,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricSummaryPill(
-                        label = if (currentLang == AppLanguage.ARABIC) "معطل" else "Disabled",
-                        value = disabledCount.toString(),
-                        color = TextSecondary,
-                        modifier = Modifier.weight(1f)
+                item(key = "search") {
+                    // Search Box
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = viewModel::onSearchQueryChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(
+                                if (currentLang == AppLanguage.ARABIC) "بحث بالاسم، مفتاح الكاشط، أو الرابط..." else "Search by name, scraperKey, or URL...",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = DarkSurface,
+                            focusedContainerColor = DarkSurface,
+                            unfocusedBorderColor = DarkCardBorder,
+                            focusedBorderColor = CineStreamRed,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Search Box
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = viewModel::onSearchQueryChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            if (currentLang == AppLanguage.ARABIC) "بحث بالاسم، مفتاح الكاشط، أو الرابط..." else "Search by name, scraperKey, or URL...",
-                            color = TextSecondary,
-                            fontSize = 12.sp
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = DarkSurface,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedBorderColor = DarkCardBorder,
-                        focusedBorderColor = CineStreamRed,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Filter Chips Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilterChip(
-                        selected = statusFilter == null,
-                        onClick = { viewModel.setStatusFilter(null) },
-                        label = { Text(if (currentLang == AppLanguage.ARABIC) "الكل" else "ALL", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CineStreamRed,
-                            selectedLabelColor = Color.White,
-                            containerColor = DarkSurface,
-                            labelColor = TextSecondary
-                        )
-                    )
-                    ManagedExtensionStatus.values().forEach { st ->
-                        val chipLabel = when (st) {
-                            ManagedExtensionStatus.ACTIVE -> if (currentLang == AppLanguage.ARABIC) "نشط" else "ACTIVE"
-                            ManagedExtensionStatus.MAINTENANCE -> if (currentLang == AppLanguage.ARABIC) "صيانة" else "MAINTENANCE"
-                            ManagedExtensionStatus.DISABLED -> if (currentLang == AppLanguage.ARABIC) "معطل" else "DISABLED"
-                            ManagedExtensionStatus.DEPRECATED -> if (currentLang == AppLanguage.ARABIC) "متقاعد" else "DEPRECATED"
-                        }
+                item(key = "filters") {
+                    // Filter Chips Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         FilterChip(
-                            selected = statusFilter == st,
-                            onClick = { viewModel.setStatusFilter(st) },
-                            label = { Text(chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            selected = statusFilter == null,
+                            onClick = { viewModel.setStatusFilter(null) },
+                            label = { Text(if (currentLang == AppLanguage.ARABIC) "الكل" else "ALL", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = when (st) {
-                                    ManagedExtensionStatus.ACTIVE -> MetricGreen
-                                    ManagedExtensionStatus.MAINTENANCE -> WarningOrange
-                                    ManagedExtensionStatus.DISABLED -> TextSecondary
-                                    ManagedExtensionStatus.DEPRECATED -> MetricRed
-                                },
+                                selectedContainerColor = CineStreamRed,
                                 selectedLabelColor = Color.White,
                                 containerColor = DarkSurface,
                                 labelColor = TextSecondary
                             )
                         )
+                        ManagedExtensionStatus.values().forEach { st ->
+                            val chipLabel = when (st) {
+                                ManagedExtensionStatus.ACTIVE -> if (currentLang == AppLanguage.ARABIC) "نشط" else "ACTIVE"
+                                ManagedExtensionStatus.MAINTENANCE -> if (currentLang == AppLanguage.ARABIC) "صيانة" else "MAINTENANCE"
+                                ManagedExtensionStatus.DISABLED -> if (currentLang == AppLanguage.ARABIC) "معطل" else "DISABLED"
+                                ManagedExtensionStatus.DEPRECATED -> if (currentLang == AppLanguage.ARABIC) "متقاعد" else "DEPRECATED"
+                            }
+                            FilterChip(
+                                selected = statusFilter == st,
+                                onClick = { viewModel.setStatusFilter(st) },
+                                label = { Text(chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = when (st) {
+                                        ManagedExtensionStatus.ACTIVE -> MetricGreen
+                                        ManagedExtensionStatus.MAINTENANCE -> WarningOrange
+                                        ManagedExtensionStatus.DISABLED -> TextSecondary
+                                        ManagedExtensionStatus.DEPRECATED -> MetricRed
+                                    },
+                                    selectedLabelColor = Color.White,
+                                    containerColor = DarkSurface,
+                                    labelColor = TextSecondary
+                                )
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
                 // Extension List
                 if (isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = CineStreamRed)
+                    item(key = "loading") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = CineStreamRed)
+                        }
                     }
                 } else if (extensions.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
+                    item(key = "empty") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Default.ExtensionOff,
-                                contentDescription = null,
-                                tint = TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(52.dp)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = if (currentLang == AppLanguage.ARABIC) "لا توجد مصادر كشط معروضة حالياً" else "No managed extensions found",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = if (currentLang == AppLanguage.ARABIC)
-                                    "يمكنك استيراد ومزامنة المصادر الأساسية (QFilm, WitAnime, EgyDead, Akwam) بنقرة واحدة:"
-                                    else "Populate standard CineStream scrapers (QFilm, WitAnime, EgyDead, Akwam) with one tap:",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { viewModel.seedDefaultScrapers() },
-                                colors = ButtonDefaults.buttonColors(containerColor = CineStreamRed),
-                                shape = RoundedCornerShape(12.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(24.dp)
                             ) {
-                                Icon(Icons.Default.CloudSync, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    if (currentLang == AppLanguage.ARABIC) "مزامنة المصادر الافتراضية الآن" else "Sync Default Scrapers Now",
-                                    fontWeight = FontWeight.Bold
+                                Icon(
+                                    Icons.Default.ExtensionOff,
+                                    contentDescription = null,
+                                    tint = TextSecondary.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(52.dp)
                                 )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = if (currentLang == AppLanguage.ARABIC) "لا توجد مصادر كشط معروضة حالياً" else "No managed extensions found",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (currentLang == AppLanguage.ARABIC)
+                                        "يمكنك استيراد ومزامنة المصادر الأساسية (QFilm, WitAnime, EgyDead, Akwam) بنقرة واحدة:"
+                                        else "Populate standard CineStream scrapers (QFilm, WitAnime, EgyDead, Akwam) with one tap:",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { viewModel.seedDefaultScrapers() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CineStreamRed),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.CloudSync, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        if (currentLang == AppLanguage.ARABIC) "مزامنة المصادر الافتراضية الآن" else "Sync Default Scrapers Now",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 80.dp)
-                    ) {
-                        items(extensions, key = { it.extensionId }) { ext ->
-                            ManagedExtensionCard(
-                                ext = ext,
-                                currentLang = currentLang,
-                                onEdit = {
-                                    editingExtension = ext
-                                    showEditorDialog = true
-                                },
-                                onRotateDomain = {
-                                    domainRotationExtension = ext
-                                },
-                                onQuickToggleEnabled = { isEnabled ->
-                                    val newStatus = if (isEnabled) ManagedExtensionStatus.ACTIVE else ManagedExtensionStatus.DISABLED
-                                    viewModel.updateStatus(ext.extensionId, newStatus)
-                                },
-                                onStatusChange = { newStatus ->
-                                    viewModel.updateStatus(ext.extensionId, newStatus)
-                                },
-                                onPriorityChange = { newPriority ->
-                                    viewModel.updatePriority(ext.extensionId, newPriority)
-                                },
-                                onEditPriority = {
-                                    priorityEditExtension = ext
-                                },
-                                onDeprecate = { extensionToDeprecate = ext },
-                                onDelete = { extensionToDelete = ext }
-                            )
-                        }
+                    items(extensions, key = { it.extensionId }) { ext ->
+                        ManagedExtensionCard(
+                            ext = ext,
+                            currentLang = currentLang,
+                            onEdit = {
+                                editingExtension = ext
+                                showEditorDialog = true
+                            },
+                            onRotateDomain = {
+                                domainRotationExtension = ext
+                            },
+                            onQuickToggleEnabled = { isEnabled ->
+                                val newStatus = if (isEnabled) ManagedExtensionStatus.ACTIVE else ManagedExtensionStatus.DISABLED
+                                viewModel.updateStatus(ext.extensionId, newStatus)
+                            },
+                            onStatusChange = { newStatus ->
+                                viewModel.updateStatus(ext.extensionId, newStatus)
+                            },
+                            onPriorityChange = { newPriority ->
+                                viewModel.updatePriority(ext.extensionId, newPriority)
+                            },
+                            onEditPriority = {
+                                priorityEditExtension = ext
+                            },
+                            onDeprecate = { extensionToDeprecate = ext },
+                            onDelete = { extensionToDelete = ext }
+                        )
                     }
                 }
             }
         }
+    }
 
     // Add / Edit Dialog
     if (showEditorDialog) {
@@ -657,7 +662,6 @@ fun ManagedExtensionsScreen(
         )
     }
 }
-}
 
 @Composable
 private fun MetricSummaryPill(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
@@ -720,7 +724,10 @@ private fun ManagedExtensionCard(
                         text = ext.name.ifBlank { ext.extensionId },
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
@@ -734,7 +741,9 @@ private fun ManagedExtensionCard(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = MetricPurple,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))

@@ -273,23 +273,11 @@ fun AppNavigation() {
 
                         DrawerItem(
                             icon = Icons.Default.Hub,
-                            title = AppStrings.managedExtensions(currentLang),
-                            selected = currentRoute == Screen.ManagedExtensions.route,
+                            title = AppStrings.extensionsSettings(currentLang),
+                            selected = currentRoute == Screen.ManagedExtensions.route || currentRoute == Screen.SearchOrder.route,
                             onClick = {
                                 coroutineScope.launch { drawerState.close() }
                                 navController.navigate(Screen.ManagedExtensions.route)
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        DrawerItem(
-                            icon = Icons.Default.Sort,
-                            title = AppStrings.searchOrder(currentLang),
-                            selected = currentRoute == Screen.SearchOrder.route,
-                            onClick = {
-                                coroutineScope.launch { drawerState.close() }
-                                navController.navigate(Screen.SearchOrder.route)
                             }
                         )
 

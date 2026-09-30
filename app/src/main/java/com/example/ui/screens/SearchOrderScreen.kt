@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -67,6 +68,7 @@ fun SearchOrderScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = DarkBackground,
         floatingActionButton = {
@@ -97,200 +99,193 @@ fun SearchOrderScreen(
         AdaptiveScreenContainer(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = AppStrings.searchOrder(currentLang),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = AppStrings.searchOrderSubtitle(currentLang),
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
+            val categoriesToShow = if (categoryFilter != null) listOf(categoryFilter!!) else SearchOrderCategory.values().toList()
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { showResetDialog = true },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.RestartAlt,
-                                contentDescription = AppStrings.resetOrderDefaults(currentLang),
-                                tint = WarningOrange
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
+            ) {
+                item(key = "header") {
+                    // Header Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = AppStrings.searchOrder(currentLang),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = AppStrings.searchOrderSubtitle(currentLang),
+                                fontSize = 12.sp,
+                                color = TextSecondary
                             )
                         }
-                        if (isDirty) {
-                            Spacer(modifier = Modifier.width(4.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(
-                                onClick = { viewModel.discardChanges() },
+                                onClick = { showResetDialog = true },
                                 modifier = Modifier.size(38.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Undo,
-                                    contentDescription = AppStrings.discardChanges(currentLang),
-                                    tint = MetricRed
+                                    Icons.Default.RestartAlt,
+                                    contentDescription = AppStrings.resetOrderDefaults(currentLang),
+                                    tint = WarningOrange
                                 )
+                            }
+                            if (isDirty) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { viewModel.discardChanges() },
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Undo,
+                                        contentDescription = AppStrings.discardChanges(currentLang),
+                                        tint = MetricRed
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Navigation Pill Tabs: Switch between Catalog & Search Order
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(DarkSurfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box(
+                item(key = "tabs") {
+                    // Navigation Pill Tabs: Switch between Catalog & Search Order
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { onNavigateToExtensions() }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .background(DarkSurfaceVariant, RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Hub, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(AppStrings.tabExtensions(currentLang), color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onNavigateToExtensions() }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Hub, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(AppStrings.tabExtensions(currentLang), color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
-                    }
 
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(CineStreamRed, RoundedCornerShape(10.dp))
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Sort, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(AppStrings.tabSearchOrder(currentLang), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(CineStreamRed, RoundedCornerShape(10.dp))
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Sort, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(AppStrings.tabSearchOrder(currentLang), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                item(key = "banner") {
+                    // Informative Architecture Banner
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
+                        shape = RoundedCornerShape(12.dp),
+                        border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = MetricBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = AppStrings.searchOrderBanner(currentLang),
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
 
-                // Informative Architecture Banner
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
-                    shape = RoundedCornerShape(12.dp),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                item(key = "category_chips") {
+                    // Category Filter Chips
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = MetricBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = AppStrings.searchOrderBanner(currentLang),
-                            fontSize = 11.sp,
-                            color = TextSecondary,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Category Filter Chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilterChip(
-                        selected = categoryFilter == null,
-                        onClick = { categoryFilter = null },
-                        label = { Text("ALL (3 SECTIONS)", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CineStreamRed,
-                            selectedLabelColor = Color.White,
-                            containerColor = DarkSurface,
-                            labelColor = TextSecondary
-                        )
-                    )
-
-                    SearchOrderCategory.values().forEach { cat ->
-                        val count = currentConfig.getOrderForCategory(cat).size
                         FilterChip(
-                            selected = categoryFilter == cat,
-                            onClick = { categoryFilter = cat },
-                            label = {
-                                Text(
-                                    "${if (currentLang == AppLanguage.ARABIC) cat.labelAr else cat.labelEn} ($count)",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            },
+                            selected = categoryFilter == null,
+                            onClick = { categoryFilter = null },
+                            label = { Text("ALL (3 SECTIONS)", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = when (cat) {
-                                    SearchOrderCategory.MOVIE -> MetricBlue
-                                    SearchOrderCategory.TV -> MetricPurple
-                                    SearchOrderCategory.ANIME -> MetricGreen
-                                },
+                                selectedContainerColor = CineStreamRed,
                                 selectedLabelColor = Color.White,
                                 containerColor = DarkSurface,
                                 labelColor = TextSecondary
                             )
                         )
+
+                        SearchOrderCategory.values().forEach { cat ->
+                            val count = currentConfig.getOrderForCategory(cat).size
+                            FilterChip(
+                                selected = categoryFilter == cat,
+                                onClick = { categoryFilter = cat },
+                                label = {
+                                    Text(
+                                        "${if (currentLang == AppLanguage.ARABIC) cat.labelAr else cat.labelEn} ($count)",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = when (cat) {
+                                        SearchOrderCategory.MOVIE -> MetricBlue
+                                        SearchOrderCategory.TV -> MetricPurple
+                                        SearchOrderCategory.ANIME -> MetricGreen
+                                    },
+                                    selectedLabelColor = Color.White,
+                                    containerColor = DarkSurface,
+                                    labelColor = TextSecondary
+                                )
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Content Sections List
-                val categoriesToShow = if (categoryFilter != null) listOf(categoryFilter!!) else SearchOrderCategory.values().toList()
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 90.dp)
-                ) {
-                    categoriesToShow.forEach { cat ->
-                        item(key = "section_${cat.name}") {
-                            SearchOrderSectionContainer(
-                                category = cat,
-                                currentLang = currentLang,
-                                orderedIds = currentConfig.getOrderForCategory(cat),
-                                availableExtensions = availableExtensions,
-                                onAddClick = { addingToCategory = cat },
-                                onMoveUp = { index -> viewModel.moveUp(cat, index) },
-                                onMoveDown = { index -> viewModel.moveDown(cat, index) },
-                                onRemove = { index -> viewModel.remove(cat, index) }
-                            )
-                        }
+                categoriesToShow.forEach { cat ->
+                    item(key = "section_${cat.name}") {
+                        SearchOrderSectionContainer(
+                            category = cat,
+                            currentLang = currentLang,
+                            orderedIds = currentConfig.getOrderForCategory(cat),
+                            availableExtensions = availableExtensions,
+                            onAddClick = { addingToCategory = cat },
+                            onMoveUp = { index -> viewModel.moveUp(cat, index) },
+                            onMoveDown = { index -> viewModel.moveDown(cat, index) },
+                            onRemove = { index -> viewModel.remove(cat, index) }
+                        )
                     }
                 }
             }
@@ -378,20 +373,36 @@ fun SearchOrderScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
                                             Text(
                                                 text = ext.name.ifBlank { ext.extensionId },
                                                 color = Color.White,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = ext.scraperKey,
-                                                color = MetricPurple,
-                                                fontFamily = FontFamily.Monospace,
-                                                fontSize = 11.sp
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(Color(0xFF1E2330), RoundedCornerShape(6.dp))
+                                                    .border(0.5.dp, DarkCardBorder, RoundedCornerShape(6.dp))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = ext.scraperKey,
+                                                    color = MetricPurple,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -651,28 +662,37 @@ private fun SearchOrderItemRow(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
                             text = extension?.name?.ifBlank { extensionId } ?: extensionId,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
 
                         Spacer(modifier = Modifier.width(6.dp))
 
                         Box(
                             modifier = Modifier
-                                .background(Color(0xFF1E2330), RoundedCornerShape(4.dp))
-                                .border(0.5.dp, DarkCardBorder, RoundedCornerShape(4.dp))
-                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                .background(Color(0xFF1E2330), RoundedCornerShape(6.dp))
+                                .border(0.5.dp, DarkCardBorder, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = extension?.scraperKey ?: extensionId,
                                 color = MetricPurple,
                                 fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
