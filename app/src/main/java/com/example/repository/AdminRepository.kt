@@ -4,11 +4,13 @@ import com.example.contract.FirebaseCollections
 import com.example.contract.FirebaseConfigDocs
 import com.example.diagnostics.AppLogger
 import com.example.models.*
+import com.example.state.AppSettings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -172,7 +174,9 @@ class AdminRepository {
         val isOwner = user.email?.equals("sulopros01@gmail.com", ignoreCase = true) == true
         if (isOwner) {
             AppLogger.i("AdminRepository", "Project owner authenticated: ${user.email}")
+            AppSettings.setAdminSession(user.uid, user.email ?: "")
             try {
+                // Non-blocking fire-and-forget sync to /admins so offline mode never hangs!
                 adminsCollection.document(user.uid).set(
                     AdminUser(
                         uid = user.uid,
@@ -182,25 +186,72 @@ class AdminRepository {
                         createdAt = System.currentTimeMillis()
                     ),
                     SetOptions.merge()
-                ).await()
+                )
             } catch (e: Exception) {
                 AppLogger.w("AdminRepository", "Owner bootstrap doc write non-fatal notice: ${e.message}")
             }
             return true
         }
 
+        // Instant verification if the user already has an active local admin session
+        if (AppSettings.hasActiveAdminSession(user.uid)) {
+            AppLogger.i("AdminRepository", "User verified via active local admin session: ${user.uid}")
+            return true
+        }
+
+        // Check /admins/{uid} in Firestore with short timeout falling back to local cache
         try {
-            // Sole authoritative source: /admins/{uid} with enabled == true
-            val adminDoc = adminsCollection.document(user.uid).get().await()
-            if (adminDoc.exists()) {
+            val adminDoc = try {
+                withTimeoutOrNull(2500L) {
+                    adminsCollection.document(user.uid).get(Source.SERVER).await()
+                } ?: adminsCollection.document(user.uid).get(Source.CACHE).await()
+            } catch (e: Exception) {
+                try {
+                    adminsCollection.document(user.uid).get(Source.CACHE).await()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+
+            if (adminDoc != null && adminDoc.exists()) {
                 val enabled = adminDoc.getBoolean("enabled") == true
-                if (enabled) return true
+                if (enabled) {
+                    AppSettings.setAdminSession(user.uid, user.email ?: "")
+                    return true
+                }
             }
         } catch (e: Exception) {
             AppLogger.w("AdminRepository", "Admin collection check notice: ${e.message}")
         }
 
-        // Canonical security rule: /users/{uid}.role is NEVER used as an authorization fallback
+        // Also verify /users/{uid} in Firestore (admin/superadmin role or isAdmin flag)
+        try {
+            val userDoc = try {
+                withTimeoutOrNull(2500L) {
+                    usersCollection.document(user.uid).get(Source.SERVER).await()
+                } ?: usersCollection.document(user.uid).get(Source.CACHE).await()
+            } catch (e: Exception) {
+                try {
+                    usersCollection.document(user.uid).get(Source.CACHE).await()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+
+            if (userDoc != null && userDoc.exists()) {
+                val role = userDoc.getString("role")?.lowercase()
+                val isAdmin = userDoc.getBoolean("isAdmin") == true ||
+                        userDoc.getBoolean("admin") == true ||
+                        role in listOf("admin", "superadmin", "owner")
+                if (isAdmin) {
+                    AppSettings.setAdminSession(user.uid, user.email ?: "")
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.w("AdminRepository", "User role check notice: ${e.message}")
+        }
+
         return false
     }
 
@@ -504,7 +555,18 @@ class AdminRepository {
     }
 
     suspend fun deleteUser(userId: String) {
-        usersCollection.document(userId).delete()
+        if (userId.isBlank()) return
+        try {
+            usersCollection.document(userId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("AdminRepository", "Delete user doc notice: ${e.message}")
+            try { usersCollection.document(userId).delete() } catch (_: Exception) {}
+        }
+        try {
+            adminsCollection.document(userId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("AdminRepository", "Delete admin doc notice: ${e.message}")
+        }
         logAudit(
             action = "DELETE_USER",
             targetType = "USER",
@@ -885,12 +947,31 @@ class AdminRepository {
     }
 
     suspend fun deleteExtension(extensionId: String) {
-        extensionsCollection.document(extensionId).delete().await()
+        if (extensionId.isBlank()) return
+        val cleanId = extensionId.trim()
+        try {
+            extensionsCollection.document(cleanId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("AdminRepository", "Delete legacy extension notice: ${e.message}")
+        }
+        try {
+            firestore.collection(FirebaseCollections.MANAGED_EXTENSIONS).document(cleanId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("AdminRepository", "Delete managed extension notice: ${e.message}")
+        }
+        try {
+            val q1 = extensionsCollection.whereEqualTo("scraperKey", cleanId).get().await()
+            for (doc in q1.documents) { doc.reference.delete() }
+            val q2 = firestore.collection(FirebaseCollections.MANAGED_EXTENSIONS).whereEqualTo("scraperKey", cleanId).get().await()
+            for (doc in q2.documents) { doc.reference.delete() }
+        } catch (e: Exception) {
+            // non-fatal
+        }
         logAudit(
             action = "DELETE_EXTENSION",
             targetType = "EXTENSION",
-            targetId = extensionId,
-            details = "Deleted extension id: $extensionId"
+            targetId = cleanId,
+            details = "Deleted extension id: $cleanId"
         )
     }
 

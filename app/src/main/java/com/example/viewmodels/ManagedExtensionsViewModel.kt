@@ -51,7 +51,7 @@ class ManagedExtensionsViewModel(
             AppLogger.w("ManagedExtViewModel", "Managed extensions notice: ${e.message}")
             _isLoading.value = false
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, DefaultCineStreamScrapers.getDefaults().sortedByDescending { it.priority })
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val filteredExtensions: StateFlow<List<ManagedExtension>> = combine(
         allExtensions,

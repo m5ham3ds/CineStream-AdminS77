@@ -475,8 +475,12 @@ fun AppNavigation() {
                     }
                 }
             ) { innerPadding ->
-                // Always start at Login to strictly verify admin authorization on cold start
-                val startDest = Screen.Login.route
+                // Allow instant offline dashboard access if administrator session was already verified
+                val hasCachedAdmin = currentUser != null && (
+                    AppSettings.hasActiveAdminSession(currentUser.uid) ||
+                    currentUser.email?.equals("sulopros01@gmail.com", ignoreCase = true) == true
+                )
+                val startDest = if (hasCachedAdmin) Screen.Dashboard.route else Screen.Login.route
 
                 NavHost(
                     navController = navController,
@@ -535,6 +539,7 @@ fun AppNavigation() {
                             onBackClick = { navController.popBackStack() },
                             onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) },
                             onLogoutClick = {
+                                AppSettings.clearAdminSession()
                                 try {
                                     FirebaseAuth.getInstance().signOut()
                                 } catch (e: Exception) {
@@ -549,6 +554,7 @@ fun AppNavigation() {
                     composable(Screen.Profile.route) {
                         AdminProfileScreen(
                             onLogoutClick = {
+                                AppSettings.clearAdminSession()
                                 try {
                                     FirebaseAuth.getInstance().signOut()
                                 } catch (e: Exception) {

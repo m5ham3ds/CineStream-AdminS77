@@ -113,7 +113,7 @@ fun ManagedExtensionsScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp)
             ) {
                 item(key = "header") {
                     // Header Row
@@ -743,7 +743,8 @@ private fun ManagedExtensionCard(
                             color = MetricPurple,
                             fontFamily = FontFamily.Monospace,
                             maxLines = 1,
-                            softWrap = false
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))

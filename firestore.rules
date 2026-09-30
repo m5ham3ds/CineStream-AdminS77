@@ -12,12 +12,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
-    // Official authoritative check against /admins/{uid} collection + Owner bootstrap
+    // Official authoritative check against /admins/{uid} collection + Owner bootstrap + Users role
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'sulopros01@gmail.com' ||
+        (request.auth.token.email != null && request.auth.token.email.matches('(?i)sulopros01@gmail.com')) ||
         (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true)
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin', 'owner'] ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true))
       );
     }
 
@@ -109,7 +113,7 @@ service cloud.firestore {
     // --- Admins Collection ---
     match /admins/{adminUid} {
       allow read: if isAuthenticated() && (request.auth.uid == adminUid || isAdmin());
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == adminUid && request.auth.token.email != null && request.auth.token.email.matches('(?i)sulopros01@gmail.com'));
     }
 
     // --- Users Collection ---

@@ -1,6 +1,7 @@
 package com.example.repository
 
 import com.example.contract.FirebaseCollections
+import com.example.contract.FirebaseConfigDocs
 import com.example.diagnostics.AppLogger
 import com.example.models.ManagedExtension
 import com.example.models.ManagedExtensionStatus
@@ -276,11 +277,8 @@ class ManagedExtensionRepository(
             managedMap.forEach { (id, ext) ->
                 mergedMap[id] = ext
             }
-            if (mergedMap.isEmpty()) {
-                DefaultCineStreamScrapers.getDefaults().sortedByDescending { it.priority }
-            } else {
-                mergedMap.values.sortedByDescending { it.priority }
-            }
+            // Return authentic persistent data without auto-resurrecting deleted extensions
+            mergedMap.values.sortedByDescending { it.priority }
         }
     }
 
@@ -426,17 +424,77 @@ class ManagedExtensionRepository(
     }
 
     suspend fun deleteManagedExtension(id: String) {
-        managedCollection.document(id).delete().await()
+        val cleanId = id.trim()
+        if (cleanId.isBlank()) return
+
+        // 1. Delete direct document in /managed_extensions
         try {
-            legacyCollection.document(id).delete().await()
+            managedCollection.document(cleanId).delete().await()
         } catch (e: Exception) {
-            AppLogger.w("ManagedExtensionRepo", "Dual delete notice: ${e.message}")
+            AppLogger.w("ManagedExtensionRepo", "Direct managed delete notice: ${e.message}")
         }
+
+        // 2. Delete any matching documents by extensionId or scraperKey in /managed_extensions
+        try {
+            val q1 = managedCollection.whereEqualTo("extensionId", cleanId).get().await()
+            for (doc in q1.documents) { doc.reference.delete() }
+            val q2 = managedCollection.whereEqualTo("scraperKey", cleanId).get().await()
+            for (doc in q2.documents) { doc.reference.delete() }
+        } catch (e: Exception) {
+            // non-fatal
+        }
+
+        // 3. Delete direct document in /extensions (legacy)
+        try {
+            legacyCollection.document(cleanId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("ManagedExtensionRepo", "Direct legacy delete notice: ${e.message}")
+        }
+
+        // 4. Delete any matching documents by extensionId or scraperKey in /extensions
+        try {
+            val q3 = legacyCollection.whereEqualTo("extensionId", cleanId).get().await()
+            for (doc in q3.documents) { doc.reference.delete() }
+            val q4 = legacyCollection.whereEqualTo("scraperKey", cleanId).get().await()
+            for (doc in q4.documents) { doc.reference.delete() }
+        } catch (e: Exception) {
+            // non-fatal
+        }
+
+        // 5. Delete from extension_updates
+        try {
+            firestore.collection(FirebaseCollections.LEGACY_EXTENSION_UPDATES).document(cleanId).delete().await()
+        } catch (e: Exception) {
+            // non-fatal
+        }
+
+        // 6. Clean up /config/search_order
+        try {
+            val searchOrderDoc = firestore.collection(FirebaseCollections.CONFIG).document(FirebaseConfigDocs.SEARCH_ORDER)
+            val snap = searchOrderDoc.get().await()
+            if (snap != null && snap.exists()) {
+                val movie = (snap.get("movie") as? List<*>)?.mapNotNull { it?.toString() }?.filterNot { it.equals(cleanId, ignoreCase = true) } ?: emptyList()
+                val tv = (snap.get("tv") as? List<*>)?.mapNotNull { it?.toString() }?.filterNot { it.equals(cleanId, ignoreCase = true) } ?: emptyList()
+                val anime = (snap.get("anime") as? List<*>)?.mapNotNull { it?.toString() }?.filterNot { it.equals(cleanId, ignoreCase = true) } ?: emptyList()
+                searchOrderDoc.set(
+                    mapOf(
+                        "movie" to movie,
+                        "tv" to tv,
+                        "anime" to anime,
+                        "updatedAt" to System.currentTimeMillis()
+                    ),
+                    SetOptions.merge()
+                )
+            }
+        } catch (e: Exception) {
+            AppLogger.w("ManagedExtensionRepo", "Search order clean notice: ${e.message}")
+        }
+
         adminRepository.logAudit(
             action = "DELETE_MANAGED_EXTENSION",
             targetType = "EXTENSION",
-            targetId = id,
-            details = "Permanently deleted managed extension: $id"
+            targetId = cleanId,
+            details = "Permanently deleted managed extension: $cleanId"
         )
     }
 

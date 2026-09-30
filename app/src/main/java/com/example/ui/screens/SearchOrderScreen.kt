@@ -106,7 +106,7 @@ fun SearchOrderScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp)
             ) {
                 item(key = "header") {
                     // Header Row
@@ -400,7 +400,8 @@ fun SearchOrderScreen(
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.SemiBold,
                                                     maxLines = 1,
-                                                    softWrap = false
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -692,7 +693,8 @@ private fun SearchOrderItemRow(
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
-                                softWrap = false
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

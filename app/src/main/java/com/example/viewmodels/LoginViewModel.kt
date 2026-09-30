@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.diagnostics.AppLogger
 import com.example.models.User
 import com.example.repository.AdminRepository
+import com.example.state.AppSettings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,12 +43,21 @@ class LoginViewModel(private val repository: AdminRepository = AdminRepository()
             }
 
             if (currentUser != null) {
+                // If local session exists or user is project owner, immediately permit offline dashboard access
+                val hasLocalAdminSession = AppSettings.hasActiveAdminSession(currentUser.uid) ||
+                        currentUser.email?.equals("sulopros01@gmail.com", ignoreCase = true) == true
+
+                if (hasLocalAdminSession) {
+                    _uiState.value = _uiState.value.copy(isLoggedIn = true)
+                }
+
                 viewModelScope.launch {
                     try {
                         val isAdmin = repository.checkIsAdmin(currentUser)
                         if (isAdmin) {
+                            AppSettings.setAdminSession(currentUser.uid, currentUser.email ?: "")
                             _uiState.value = _uiState.value.copy(isLoggedIn = true)
-                        } else {
+                        } else if (!hasLocalAdminSession) {
                             try { auth.signOut() } catch (_: Exception) {}
                             _uiState.value = _uiState.value.copy(
                                 isLoggedIn = false,
@@ -55,10 +65,12 @@ class LoginViewModel(private val repository: AdminRepository = AdminRepository()
                             )
                         }
                     } catch (e: Exception) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoggedIn = false,
-                            error = "Error verifying admin rights: ${e.message}"
-                        )
+                        if (!hasLocalAdminSession) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoggedIn = false,
+                                error = "Error verifying admin rights: ${e.message}"
+                            )
+                        }
                     }
                 }
             } else {
@@ -149,6 +161,7 @@ class LoginViewModel(private val repository: AdminRepository = AdminRepository()
                 val isAdmin = repository.checkIsAdmin(user)
                 if (!isAdmin) {
                     auth.signOut()
+                    AppSettings.clearAdminSession()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoggedIn = false,
@@ -156,6 +169,8 @@ class LoginViewModel(private val repository: AdminRepository = AdminRepository()
                     )
                     return@launch
                 }
+
+                AppSettings.setAdminSession(user.uid, user.email ?: "")
 
                 // Immediately transition user to authenticated admin state
                 _uiState.value = _uiState.value.copy(

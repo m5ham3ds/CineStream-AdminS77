@@ -239,7 +239,22 @@ class SupportRepository(
      */
     suspend fun deleteConversation(conversationId: String) {
         require(conversationId.isNotBlank()) { "Conversation ID cannot be blank" }
-        conversationsCollection.document(conversationId).delete()
+        try {
+            val messagesSnap = conversationsCollection.document(conversationId)
+                .collection(FirebaseSubcollections.MESSAGES).get().await()
+            for (msg in messagesSnap.documents) {
+                try { msg.reference.delete().await() } catch (_: Exception) {}
+            }
+        } catch (e: Exception) {
+            AppLogger.w("SupportRepository", "Delete messages notice: ${e.message}")
+        }
+
+        try {
+            conversationsCollection.document(conversationId).delete().await()
+        } catch (e: Exception) {
+            AppLogger.w("SupportRepository", "Delete conversation notice: ${e.message}")
+            try { conversationsCollection.document(conversationId).delete() } catch (_: Exception) {}
+        }
 
         adminRepository.logAudit(
             action = "DELETE_SUPPORT_CONVERSATION",

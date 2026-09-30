@@ -21,6 +21,9 @@ object AppSettings {
     private const val KEY_NOTIFICATIONS = "key_notifications"
     private const val KEY_SOUND = "key_sound"
     private const val KEY_VIBRATION = "key_vibration"
+    private const val KEY_ADMIN_UID = "key_admin_uid"
+    private const val KEY_ADMIN_EMAIL = "key_admin_email"
+    private const val KEY_IS_ADMIN_VERIFIED = "key_is_admin_verified"
 
     private var prefs: SharedPreferences? = null
 
@@ -73,5 +76,36 @@ object AppSettings {
     fun setVibrationEnabled(enabled: Boolean) {
         _vibrationEnabled.value = enabled
         prefs?.edit()?.putBoolean(KEY_VIBRATION, enabled)?.apply()
+    }
+
+    fun setAdminSession(uid: String, email: String) {
+        prefs?.edit()
+            ?.putString(KEY_ADMIN_UID, uid)
+            ?.putString(KEY_ADMIN_EMAIL, email)
+            ?.putBoolean(KEY_IS_ADMIN_VERIFIED, true)
+            ?.apply()
+    }
+
+    fun hasActiveAdminSession(uid: String? = null): Boolean {
+        val sp = prefs ?: return false
+        val isVerified = sp.getBoolean(KEY_IS_ADMIN_VERIFIED, false)
+        if (!isVerified) return false
+        if (uid != null) {
+            val savedUid = sp.getString(KEY_ADMIN_UID, null)
+            return savedUid != null && savedUid == uid
+        }
+        return true
+    }
+
+    fun cachedAdminEmail(): String {
+        return prefs?.getString(KEY_ADMIN_EMAIL, "") ?: ""
+    }
+
+    fun clearAdminSession() {
+        prefs?.edit()
+            ?.remove(KEY_ADMIN_UID)
+            ?.remove(KEY_ADMIN_EMAIL)
+            ?.putBoolean(KEY_IS_ADMIN_VERIFIED, false)
+            ?.apply()
     }
 }
