@@ -151,6 +151,8 @@ fun ManagedExtensionsScreen(
                             contentDescription = AppStrings.refresh(currentLang)
                         )
                     }
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Navigation Pill Tabs: Switch between Catalog & Search Order
@@ -228,25 +230,25 @@ fun ManagedExtensionsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MetricSummaryPill(
-                        label = "Total",
+                        label = if (currentLang == AppLanguage.ARABIC) "الإجمالي" else "Total",
                         value = totalCount.toString(),
                         color = MetricBlue,
                         modifier = Modifier.weight(1f)
                     )
                     MetricSummaryPill(
-                        label = "Active",
+                        label = if (currentLang == AppLanguage.ARABIC) "نشط" else "Active",
                         value = activeCount.toString(),
                         color = MetricGreen,
                         modifier = Modifier.weight(1f)
                     )
                     MetricSummaryPill(
-                        label = "Maint.",
+                        label = if (currentLang == AppLanguage.ARABIC) "صيانة" else "Maint.",
                         value = maintenanceCount.toString(),
                         color = WarningOrange,
                         modifier = Modifier.weight(1f)
                     )
                     MetricSummaryPill(
-                        label = "Disabled",
+                        label = if (currentLang == AppLanguage.ARABIC) "معطل" else "Disabled",
                         value = disabledCount.toString(),
                         color = TextSecondary,
                         modifier = Modifier.weight(1f)
@@ -302,7 +304,7 @@ fun ManagedExtensionsScreen(
                     FilterChip(
                         selected = statusFilter == null,
                         onClick = { viewModel.setStatusFilter(null) },
-                        label = { Text("ALL", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "الكل" else "ALL", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = CineStreamRed,
                             selectedLabelColor = Color.White,
@@ -311,10 +313,16 @@ fun ManagedExtensionsScreen(
                         )
                     )
                     ManagedExtensionStatus.values().forEach { st ->
+                        val chipLabel = when (st) {
+                            ManagedExtensionStatus.ACTIVE -> if (currentLang == AppLanguage.ARABIC) "نشط" else "ACTIVE"
+                            ManagedExtensionStatus.MAINTENANCE -> if (currentLang == AppLanguage.ARABIC) "صيانة" else "MAINTENANCE"
+                            ManagedExtensionStatus.DISABLED -> if (currentLang == AppLanguage.ARABIC) "معطل" else "DISABLED"
+                            ManagedExtensionStatus.DEPRECATED -> if (currentLang == AppLanguage.ARABIC) "متقاعد" else "DEPRECATED"
+                        }
                         FilterChip(
                             selected = statusFilter == st,
                             onClick = { viewModel.setStatusFilter(st) },
-                            label = { Text(st.name, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            label = { Text(chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = when (st) {
                                     ManagedExtensionStatus.ACTIVE -> MetricGreen
@@ -395,6 +403,7 @@ fun ManagedExtensionsScreen(
                         items(extensions, key = { it.extensionId }) { ext ->
                             ManagedExtensionCard(
                                 ext = ext,
+                                currentLang = currentLang,
                                 onEdit = {
                                     editingExtension = ext
                                     showEditorDialog = true
@@ -423,7 +432,6 @@ fun ManagedExtensionsScreen(
                 }
             }
         }
-    }
 
     // Add / Edit Dialog
     if (showEditorDialog) {
@@ -671,6 +679,7 @@ private fun MetricSummaryPill(label: String, value: String, color: Color, modifi
 @Composable
 private fun ManagedExtensionCard(
     ext: ManagedExtension,
+    currentLang: AppLanguage,
     onEdit: () -> Unit,
     onRotateDomain: () -> Unit = {},
     onQuickToggleEnabled: (Boolean) -> Unit = {},
@@ -776,7 +785,12 @@ private fun ManagedExtensionCard(
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = ext.statusEnum.name,
+                            text = when (ext.statusEnum) {
+                                ManagedExtensionStatus.ACTIVE -> if (currentLang == AppLanguage.ARABIC) "نشط" else "ACTIVE"
+                                ManagedExtensionStatus.MAINTENANCE -> if (currentLang == AppLanguage.ARABIC) "صيانة" else "MAINTENANCE"
+                                ManagedExtensionStatus.DISABLED -> if (currentLang == AppLanguage.ARABIC) "معطل" else "DISABLED"
+                                ManagedExtensionStatus.DEPRECATED -> if (currentLang == AppLanguage.ARABIC) "متقاعد" else "DEPRECATED"
+                            },
                             color = statusColor,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
@@ -799,7 +813,7 @@ private fun ManagedExtensionCard(
                             modifier = Modifier.background(DarkSurface)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Edit Definition", color = Color.White) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تعديل كامل الخصائص" else "Edit Definition", color = Color.White) },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MetricBlue) },
                                 onClick = {
                                     showMenu = false
@@ -807,7 +821,7 @@ private fun ManagedExtensionCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Rotate Domain / URL", color = MetricBlue) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تدوير النطاق / الرابط" else "Rotate Domain / URL", color = MetricBlue) },
                                 leadingIcon = { Icon(Icons.Default.Language, contentDescription = null, tint = MetricBlue) },
                                 onClick = {
                                     showMenu = false
@@ -815,7 +829,7 @@ private fun ManagedExtensionCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Set Priority", color = MetricGreen) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تعديل الأولوية" else "Set Priority", color = MetricGreen) },
                                 leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null, tint = MetricGreen) },
                                 onClick = {
                                     showMenu = false
@@ -824,7 +838,7 @@ private fun ManagedExtensionCard(
                             )
                             HorizontalDivider(color = DarkCardBorder)
                             DropdownMenuItem(
-                                text = { Text("Set ACTIVE", color = MetricGreen) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تعيين كـ نشط (ACTIVE)" else "Set ACTIVE", color = MetricGreen) },
                                 leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MetricGreen) },
                                 onClick = {
                                     showMenu = false
@@ -832,7 +846,7 @@ private fun ManagedExtensionCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Set MAINTENANCE", color = WarningOrange) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تعيين كـ صيانة (MAINTENANCE)" else "Set MAINTENANCE", color = WarningOrange) },
                                 leadingIcon = { Icon(Icons.Default.Build, contentDescription = null, tint = WarningOrange) },
                                 onClick = {
                                     showMenu = false
@@ -840,7 +854,7 @@ private fun ManagedExtensionCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Set DISABLED (Kill Switch)", color = TextSecondary) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "تعطيل الكاشط (DISABLED)" else "Set DISABLED (Kill Switch)", color = TextSecondary) },
                                 leadingIcon = { Icon(Icons.Default.Block, contentDescription = null, tint = TextSecondary) },
                                 onClick = {
                                     showMenu = false
@@ -848,7 +862,7 @@ private fun ManagedExtensionCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("DEPRECATE (Retain)", color = WarningOrange) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "إحالة للتقاعد (DEPRECATE)" else "DEPRECATE (Retain)", color = WarningOrange) },
                                 leadingIcon = { Icon(Icons.Default.Archive, contentDescription = null, tint = WarningOrange) },
                                 onClick = {
                                     showMenu = false
@@ -857,7 +871,7 @@ private fun ManagedExtensionCard(
                             )
                             HorizontalDivider(color = DarkCardBorder)
                             DropdownMenuItem(
-                                text = { Text("Delete (Destructive)", color = MetricRed) },
+                                text = { Text(if (currentLang == AppLanguage.ARABIC) "حذف المصدر نهائياً" else "Delete (Destructive)", color = MetricRed) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MetricRed) },
                                 onClick = {
                                     showMenu = false
@@ -930,12 +944,25 @@ private fun ManagedExtensionCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     ext.contentTypes.forEach { type ->
+                        val badgeColor = when (type.uppercase()) {
+                            "MOVIE" -> MetricBlue
+                            "SERIES", "TV" -> MetricPurple
+                            "ANIME" -> WarningOrange
+                            else -> MetricGreen
+                        }
+                        val localizedType = when (type.uppercase()) {
+                            "MOVIE" -> if (currentLang == AppLanguage.ARABIC) "أفلام (MOVIE)" else "MOVIE"
+                            "SERIES", "TV" -> if (currentLang == AppLanguage.ARABIC) "مسلسلات (SERIES)" else "SERIES"
+                            "ANIME" -> if (currentLang == AppLanguage.ARABIC) "أنمي (ANIME)" else "ANIME"
+                            else -> type
+                        }
                         Box(
                             modifier = Modifier
-                                .background(MetricPurpleBg.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                .background(badgeColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .border(0.5.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text(type, color = MetricPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(localizedType, color = badgeColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -952,7 +979,7 @@ private fun ManagedExtensionCard(
                             modifier = Modifier
                                 .background(DarkSurfaceVariant, RoundedCornerShape(4.dp))
                                 .border(0.5.dp, DarkCardBorder, RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(cap, color = TextSecondary, fontSize = 9.sp)
                         }
@@ -977,6 +1004,81 @@ private fun ManagedExtensionCard(
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace
                 )
+            }
+
+            HorizontalDivider(color = DarkCardBorder.copy(alpha = 0.6f))
+
+            // Action Bar: Directly visible buttons for Edit, Domain, and Priority
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onEdit,
+                        colors = ButtonDefaults.buttonColors(containerColor = CineStreamRed.copy(alpha = 0.18f)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 34.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, tint = CineStreamRed, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC) "تعديل الخصائص" else "Edit Properties",
+                            color = CineStreamRed,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onRotateDomain,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MetricBlue),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MetricBlue.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 34.dp)
+                    ) {
+                        Icon(Icons.Default.Language, contentDescription = null, tint = MetricBlue, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC) "تغيير الرابط" else "Change URL",
+                            color = MetricBlue,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onEditPriority,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Speed,
+                            contentDescription = "Priority",
+                            tint = MetricGreen,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = MetricRed.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -1038,7 +1140,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = extensionId,
                     onValueChange = { if (isNew) extensionId = it.filter { ch -> ch.isLetterOrDigit() || ch == '_' || ch == '-' } },
-                    label = { Text("Extension ID (e.g. arabseed)") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "معرّف الإضافة (Extension ID)" else "Extension ID (e.g. arabseed)") },
                     enabled = isNew,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1048,7 +1150,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = scraperKey,
                     onValueChange = { scraperKey = it.filter { ch -> ch.isLetterOrDigit() || ch == '_' || ch == '-' }.lowercase() },
-                    label = { Text("Scraper Key (e.g. qfilm)") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "مفتاح الكاشط البرمجي (Scraper Key)" else "Scraper Key (e.g. qfilm)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1057,7 +1159,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Display Name") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "اسم الكاشط أو المصدر" else "Display Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1066,7 +1168,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "الوصف والتفاصيل" else "Description") },
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1075,7 +1177,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it.trim() },
-                    label = { Text("Base URL (HTTPS only)") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "الرابط الأساسي (HTTPS)" else "Base URL (HTTPS only)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1084,7 +1186,7 @@ private fun ManagedExtensionEditorDialog(
                 OutlinedTextField(
                     value = searchUrl,
                     onValueChange = { searchUrl = it.trim() },
-                    label = { Text("Search URL (e.g. /search?q=%s)") },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "رابط البحث (Search URL)" else "Search URL (e.g. /search?q=%s)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1094,7 +1196,7 @@ private fun ManagedExtensionEditorDialog(
                     OutlinedTextField(
                         value = priority,
                         onValueChange = { priority = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Priority") },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "الأولوية" else "Priority") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -1102,7 +1204,7 @@ private fun ManagedExtensionEditorDialog(
                     OutlinedTextField(
                         value = minAppVersionCode,
                         onValueChange = { minAppVersionCode = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Min App Ver") },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "أدنى تطبيق" else "Min App Ver") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -1110,7 +1212,7 @@ private fun ManagedExtensionEditorDialog(
                     OutlinedTextField(
                         value = runtimeApiVersion,
                         onValueChange = { runtimeApiVersion = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("API Ver") },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "API Ver" else "API Ver") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -1118,13 +1220,24 @@ private fun ManagedExtensionEditorDialog(
                 }
 
                 // Lifecycle Status Selector
-                Text("Lifecycle Status", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (currentLang == AppLanguage.ARABIC) "حالة التشغيل (Lifecycle Status)" else "Lifecycle Status",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ManagedExtensionStatus.values().forEach { st ->
+                        val chipText = when (st) {
+                            ManagedExtensionStatus.ACTIVE -> if (currentLang == AppLanguage.ARABIC) "نشط ACTIVE" else "ACTIVE"
+                            ManagedExtensionStatus.MAINTENANCE -> if (currentLang == AppLanguage.ARABIC) "صيانة MAINTENANCE" else "MAINTENANCE"
+                            ManagedExtensionStatus.DISABLED -> if (currentLang == AppLanguage.ARABIC) "معطل DISABLED" else "DISABLED"
+                            ManagedExtensionStatus.DEPRECATED -> if (currentLang == AppLanguage.ARABIC) "متقاعد DEPRECATED" else "DEPRECATED"
+                        }
                         FilterChip(
                             selected = selectedStatus == st,
                             onClick = { selectedStatus = st },
-                            label = { Text(st.name, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                            label = { Text(chipText, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = CineStreamRed,
                                 selectedLabelColor = Color.White,
@@ -1136,16 +1249,27 @@ private fun ManagedExtensionEditorDialog(
                 }
 
                 // Content Types Selection
-                Text("Content Types", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (currentLang == AppLanguage.ARABIC) "فئات المحتوى المدعومة (Categories / Content Types)" else "Content Types / Categories",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ManagedExtensionContentTypes.ALL.forEach { ct ->
                         val isSelected = ct in selectedContentTypes
+                        val localizedLabel = when (ct) {
+                            "MOVIE" -> if (currentLang == AppLanguage.ARABIC) "أفلام (MOVIE)" else "MOVIE"
+                            "SERIES" -> if (currentLang == AppLanguage.ARABIC) "مسلسلات (SERIES)" else "SERIES"
+                            "ANIME" -> if (currentLang == AppLanguage.ARABIC) "أنمي (ANIME)" else "ANIME"
+                            else -> ct
+                        }
                         FilterChip(
                             selected = isSelected,
                             onClick = {
                                 selectedContentTypes = if (isSelected) selectedContentTypes - ct else selectedContentTypes + ct
                             },
-                            label = { Text(ct, fontSize = 10.sp) },
+                            label = { Text(localizedLabel, fontSize = 10.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MetricPurple,
                                 selectedLabelColor = Color.White,
@@ -1157,7 +1281,12 @@ private fun ManagedExtensionEditorDialog(
                 }
 
                 // Capabilities Selection
-                Text("Capabilities", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (currentLang == AppLanguage.ARABIC) "القدرات البرمجية المدعومة (Capabilities)" else "Capabilities",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ManagedExtensionCapabilities.ALL.forEach { cap ->
                         val isSelected = cap in selectedCapabilities
@@ -1183,7 +1312,11 @@ private fun ManagedExtensionEditorDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Global Enable Toggle", color = Color.White, fontSize = 13.sp)
+                    Text(
+                        if (currentLang == AppLanguage.ARABIC) "تفعيل المصدر بشكل عام" else "Global Enable Toggle",
+                        color = Color.White,
+                        fontSize = 13.sp
+                    )
                     Switch(
                         checked = enabled,
                         onCheckedChange = { enabled = it },

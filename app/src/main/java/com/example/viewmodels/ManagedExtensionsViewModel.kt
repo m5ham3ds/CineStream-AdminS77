@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.diagnostics.AppLogger
 import com.example.models.ManagedExtension
 import com.example.models.ManagedExtensionStatus
+import com.example.repository.DefaultCineStreamScrapers
 import com.example.repository.ManagedExtensionRepository
 import com.example.validation.ManagedExtensionValidator
 import kotlinx.coroutines.flow.*
@@ -20,7 +21,7 @@ class ManagedExtensionsViewModel(
     private val _statusFilter = MutableStateFlow<ManagedExtensionStatus?>(null)
     val statusFilter = _statusFilter.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(true)
+    private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
     private val _statusMessage = MutableStateFlow<String?>(null)
@@ -50,7 +51,7 @@ class ManagedExtensionsViewModel(
             AppLogger.w("ManagedExtViewModel", "Managed extensions notice: ${e.message}")
             _isLoading.value = false
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, DefaultCineStreamScrapers.getDefaults().sortedByDescending { it.priority })
 
     val filteredExtensions: StateFlow<List<ManagedExtension>> = combine(
         allExtensions,

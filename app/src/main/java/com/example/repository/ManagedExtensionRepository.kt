@@ -244,6 +244,7 @@ class ManagedExtensionRepository(
         val listener = col.addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
                 AppLogger.w("ManagedExtensionRepo", "Listener notice for $name: ${error.message}")
+                trySend(emptyMap())
                 if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                     close(error)
                 }
@@ -258,6 +259,8 @@ class ManagedExtensionRepository(
             trySend(map)
         }
         awaitClose { listener.remove() }
+    }.onStart {
+        emit(emptyMap())
     }.retryWhen { cause, attempt ->
         delay(minOf(1000L * (attempt + 1), 5000L))
         true
@@ -273,7 +276,11 @@ class ManagedExtensionRepository(
             managedMap.forEach { (id, ext) ->
                 mergedMap[id] = ext
             }
-            mergedMap.values.sortedByDescending { it.priority }
+            if (mergedMap.isEmpty()) {
+                DefaultCineStreamScrapers.getDefaults().sortedByDescending { it.priority }
+            } else {
+                mergedMap.values.sortedByDescending { it.priority }
+            }
         }
     }
 
