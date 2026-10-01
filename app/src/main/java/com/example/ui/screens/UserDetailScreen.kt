@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.models.CanonicalPlanId
+import com.example.models.CanonicalSubscriptionTier
+import com.example.models.PointTransaction
 import com.example.models.SubscriptionState
 import com.example.models.User
 import com.example.state.AppLanguage
@@ -62,6 +65,7 @@ fun UserDetailScreen(
     var showUnbanConfirmDialog by remember { mutableStateOf(false) }
     var showSubscriptionDialog by remember { mutableStateOf(false) }
     var showRevokeSubDialog by remember { mutableStateOf(false) }
+    var showPointsDialog by remember { mutableStateOf(false) }
 
     val factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -74,6 +78,7 @@ fun UserDetailScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pendingOperations by viewModel.pendingOperations.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+    val pointTransactions by viewModel.pointTransactions.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(statusMessage) {
@@ -183,6 +188,19 @@ fun UserDetailScreen(
             onConfirm = { tier, durationDays ->
                 showSubscriptionDialog = false
                 viewModel.grantSubscription(tier, durationDays)
+            }
+        )
+    }
+
+    // Points Adjustment Dialog (Phase 03A)
+    if (showPointsDialog && user != null) {
+        PointsAdjustmentDialog(
+            currentLang = currentLang,
+            currentUser = user!!,
+            onDismiss = { showPointsDialog = false },
+            onConfirm = { amount, reason ->
+                showPointsDialog = false
+                viewModel.adjustUserPoints(amount, reason)
             }
         )
     }
@@ -320,15 +338,31 @@ fun UserDetailScreen(
                             when (u.subscriptionState) {
                                 SubscriptionState.ACTIVE_PRO -> {
                                     StatusBadge(
-                                        text = u.subscriptionTier.uppercase(),
+                                        text = "PRO",
                                         bg = MetricPurpleBg.copy(alpha = 0.5f),
                                         border = MetricPurple,
                                         textColor = MetricPurple
                                     )
                                 }
+                                SubscriptionState.ACTIVE_PRO_LITE -> {
+                                    StatusBadge(
+                                        text = "PRO LITE",
+                                        bg = MetricBlueBg.copy(alpha = 0.5f),
+                                        border = MetricBlue,
+                                        textColor = MetricBlue
+                                    )
+                                }
                                 SubscriptionState.EXPIRED_PRO -> {
                                     StatusBadge(
                                         text = "EXPIRED PRO",
+                                        bg = WarningOrange.copy(alpha = 0.2f),
+                                        border = WarningOrange,
+                                        textColor = WarningOrange
+                                    )
+                                }
+                                SubscriptionState.EXPIRED -> {
+                                    StatusBadge(
+                                        text = "EXPIRED",
                                         bg = WarningOrange.copy(alpha = 0.2f),
                                         border = WarningOrange,
                                         textColor = WarningOrange
@@ -476,12 +510,22 @@ fun UserDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 3. Subscription & Pro Tier Management Card (Phase C1 Deliverable)
+                    // 3. Subscription & Pro Tier Management Card (Phase 03A Deliverable)
                     SubscriptionManagementCard(
                         user = u,
                         currentLang = currentLang,
                         onManageClick = { showSubscriptionDialog = true },
                         onRevokeClick = { showRevokeSubDialog = true }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 3.5 Points Economy & Rewards Card (Phase 03A Deliverable)
+                    UserPointsEconomyCard(
+                        user = u,
+                        transactions = pointTransactions,
+                        currentLang = currentLang,
+                        onAdjustClick = { showPointsDialog = true }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -712,12 +756,14 @@ private fun SubscriptionManagementCard(
     val state = user.subscriptionState
     val cardBg = when (state) {
         SubscriptionState.ACTIVE_PRO -> MetricPurpleBg.copy(alpha = 0.25f)
-        SubscriptionState.EXPIRED_PRO -> WarningOrange.copy(alpha = 0.12f)
+        SubscriptionState.ACTIVE_PRO_LITE -> MetricBlueBg.copy(alpha = 0.25f)
+        SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> WarningOrange.copy(alpha = 0.12f)
         SubscriptionState.FREE -> DarkSurface
     }
     val cardBorder = when (state) {
         SubscriptionState.ACTIVE_PRO -> MetricPurple
-        SubscriptionState.EXPIRED_PRO -> WarningOrange
+        SubscriptionState.ACTIVE_PRO_LITE -> MetricBlue
+        SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> WarningOrange
         SubscriptionState.FREE -> DarkCardBorder
     }
 
@@ -745,7 +791,12 @@ private fun SubscriptionManagementCard(
                         modifier = Modifier
                             .size(34.dp)
                             .background(
-                                (if (state == SubscriptionState.ACTIVE_PRO) MetricPurple else if (state == SubscriptionState.EXPIRED_PRO) WarningOrange else TextSecondary).copy(alpha = 0.15f),
+                                (when (state) {
+                                    SubscriptionState.ACTIVE_PRO -> MetricPurple
+                                    SubscriptionState.ACTIVE_PRO_LITE -> MetricBlue
+                                    SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> WarningOrange
+                                    SubscriptionState.FREE -> TextSecondary
+                                }).copy(alpha = 0.15f),
                                 RoundedCornerShape(8.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -753,7 +804,12 @@ private fun SubscriptionManagementCard(
                         Icon(
                             Icons.Default.Star,
                             contentDescription = null,
-                            tint = if (state == SubscriptionState.ACTIVE_PRO) MetricPurple else if (state == SubscriptionState.EXPIRED_PRO) WarningOrange else TextSecondary,
+                            tint = when (state) {
+                                SubscriptionState.ACTIVE_PRO -> MetricPurple
+                                SubscriptionState.ACTIVE_PRO_LITE -> MetricBlue
+                                SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> WarningOrange
+                                SubscriptionState.FREE -> TextSecondary
+                            },
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -768,7 +824,7 @@ private fun SubscriptionManagementCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (currentLang == AppLanguage.ARABIC) "إدارة باقة الاشتراك والترقية" else "PRO / VIP Subscription Control",
+                            text = if (currentLang == AppLanguage.ARABIC) "إدارة الاشتراكات وتصاريح المشاهدة" else "PRO / PRO LITE Subscription Control",
                             color = TextSecondary,
                             fontSize = 11.sp,
                             maxLines = 1
@@ -786,14 +842,29 @@ private fun SubscriptionManagementCard(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "VIP / PRO",
+                                text = "PRO (30D)",
                                 color = MetricPurple,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    SubscriptionState.EXPIRED_PRO -> {
+                    SubscriptionState.ACTIVE_PRO_LITE -> {
+                        Box(
+                            modifier = Modifier
+                                .background(MetricBlue.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .border(1.dp, MetricBlue, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "PRO LITE",
+                                color = MetricBlue,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> {
                         Box(
                             modifier = Modifier
                                 .background(WarningOrange.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
@@ -830,7 +901,8 @@ private fun SubscriptionManagementCard(
 
             // Info Details Section
             when (state) {
-                SubscriptionState.ACTIVE_PRO -> {
+                SubscriptionState.ACTIVE_PRO, SubscriptionState.ACTIVE_PRO_LITE -> {
+                    val tierColor = if (state == SubscriptionState.ACTIVE_PRO) MetricPurple else MetricBlue
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -844,14 +916,47 @@ private fun SubscriptionManagementCard(
                             )
                             Text(
                                 text = "${AppStrings.activeProBadge(currentLang)} (${user.subscriptionTier.uppercase()})",
-                                color = MetricPurple,
+                                color = tierColor,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "رمز الخطة (SKU):" else "Plan SKU:",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = user.planId.ifBlank { user.subscriptionTier.lowercase() },
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "مصدر الاشتراك:" else "Source:",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = user.subscriptionSource,
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                         val expiryStr = if (user.subscriptionExpiresAt != null) {
-                            val dateFormatted = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(user.subscriptionExpiresAt))
-                            dateFormatted
+                            SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(user.subscriptionExpiresAt))
                         } else {
                             if (currentLang == AppLanguage.ARABIC) "مدى الحياة (دائم)" else "Lifetime (Permanent)"
                         }
@@ -874,7 +979,7 @@ private fun SubscriptionManagementCard(
                         }
                     }
                 }
-                SubscriptionState.EXPIRED_PRO -> {
+                SubscriptionState.EXPIRED_PRO, SubscriptionState.EXPIRED -> {
                     val dateFormatted = if (user.subscriptionExpiresAt != null) {
                         SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(user.subscriptionExpiresAt))
                     } else "-"
@@ -899,9 +1004,9 @@ private fun SubscriptionManagementCard(
                 SubscriptionState.FREE -> {
                     Text(
                         text = if (currentLang == AppLanguage.ARABIC)
-                            "المستخدم مسجل في الخطة المجانية القياسية دون ميزات VIP."
+                            "المستخدم مسجل في الخطة المجانية القياسية (إعلانات مفعّلة)."
                         else
-                            "User is currently on the standard Free plan without VIP features.",
+                            "User is currently on the standard Free plan (Ad-supported).",
                         color = TextSecondary,
                         fontSize = 12.sp
                     )
@@ -917,7 +1022,9 @@ private fun SubscriptionManagementCard(
                 // Main Manage / Upgrade Button
                 Button(
                     onClick = onManageClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = MetricPurple),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (state == SubscriptionState.ACTIVE_PRO_LITE) MetricBlue else MetricPurple
+                    ),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     modifier = Modifier
@@ -926,16 +1033,16 @@ private fun SubscriptionManagementCard(
                         .testTag("subscription_manage_button")
                 ) {
                     Icon(
-                        imageVector = if (state == SubscriptionState.ACTIVE_PRO) Icons.Default.Edit else Icons.Default.Bolt,
+                        imageVector = if (user.subscriptionState.isAdFree) Icons.Default.Edit else Icons.Default.Bolt,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (state == SubscriptionState.ACTIVE_PRO)
+                        text = if (user.subscriptionState.isAdFree)
                             (if (currentLang == AppLanguage.ARABIC) "تمديد أو تعديل الاشتراك" else "Extend / Modify")
                         else
-                            (if (currentLang == AppLanguage.ARABIC) "ترقية وتفعيل PRO" else "Upgrade to PRO"),
+                            (if (currentLang == AppLanguage.ARABIC) "ترقية وتفعيل الاشتراك" else "Grant Subscription"),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -943,8 +1050,8 @@ private fun SubscriptionManagementCard(
                     )
                 }
 
-                // If currently Pro, provide Revoke Subscription button
-                if (state == SubscriptionState.ACTIVE_PRO) {
+                // If currently Pro or Pro Lite, provide Revoke Subscription button
+                if (user.subscriptionState.isAdFree) {
                     OutlinedButton(
                         onClick = onRevokeClick,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = CineStreamRed),
@@ -1358,6 +1465,385 @@ private fun BanAccountDialog(
     )
 }
 
+@Composable
+private fun UserPointsEconomyCard(
+    user: User,
+    transactions: List<PointTransaction>,
+    currentLang: AppLanguage,
+    onAdjustClick: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(14.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = Brush.linearGradient(listOf(MetricOrange.copy(alpha = 0.5f), DarkCardBorder))
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(MetricOrange.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MonetizationOn,
+                            contentDescription = null,
+                            tint = MetricOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC) "محفظة النقاط والمكافآت" else "Points & Rewards Economy",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC) "رصيد المحفظة وسجل المعاملات" else "Spendable balance & ledger",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                // Balance Chip
+                Box(
+                    modifier = Modifier
+                        .background(MetricOrange.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .border(1.dp, MetricOrange, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = "${user.pointsBalance} PTS",
+                        color = MetricOrange,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            HorizontalDivider(color = DarkCardBorder, thickness = 0.8.dp)
+
+            // Balance Summary Metrics
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC) "الرصيد المتاح" else "Current Balance",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "${user.pointsBalance}",
+                        color = MetricOrange,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column {
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC) "إجمالي المكتسب" else "Lifetime Earned",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "${user.totalPointsEarned}",
+                        color = MetricGreen,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column {
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC) "إجمالي المنفق" else "Lifetime Spent",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "${user.totalPointsSpent}",
+                        color = TextSecondary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Adjust Points Button & History Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onAdjustClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = MetricOrange),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .testTag("adjust_points_button")
+                ) {
+                    Icon(
+                        Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC) "تعديل الرصيد (منح / خصم)" else "Adjust Points",
+                        color = Color.Black,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = { expanded = !expanded },
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text(
+                        text = if (expanded) (if (currentLang == AppLanguage.ARABIC) "إخفاء السجل" else "Hide Ledger")
+                               else (if (currentLang == AppLanguage.ARABIC) "عرض السجل (${transactions.size})" else "Ledger (${transactions.size})"),
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            // Expandable Recent Transactions Ledger
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    HorizontalDivider(color = DarkCardBorder, thickness = 0.5.dp)
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC) "سجل العملات الأخير (/point_transactions):" else "Recent Ledger Entries:",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    if (transactions.isEmpty()) {
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC) "لا توجد معاملات مسجلة بعد." else "No transactions recorded yet.",
+                            color = TextSecondary,
+                            fontSize = 11.5.sp
+                        )
+                    } else {
+                        transactions.take(8).forEach { tx ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(DarkSurfaceVariant, RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = tx.description.ifBlank { tx.type.replace("_", " ") },
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val dateStr = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault()).format(Date(tx.createdAt))
+                                    Text(
+                                        text = "$dateStr • ${tx.type}",
+                                        color = TextSecondary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                val isCredit = tx.amount >= 0
+                                Text(
+                                    text = if (isCredit) "+${tx.amount}" else "${tx.amount}",
+                                    color = if (isCredit) MetricGreen else MetricRed,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PointsAdjustmentDialog(
+    currentLang: AppLanguage,
+    currentUser: User,
+    onDismiss: () -> Unit,
+    onConfirm: (amount: Long, reason: String) -> Unit
+) {
+    var isCredit by remember { mutableStateOf(true) }
+    var amountText by remember { mutableStateOf("50") }
+    var reasonText by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val amountValue = amountText.toLongOrNull() ?: 0L
+    val finalDelta = if (isCredit) amountValue else -amountValue
+    val resultingBalance = currentUser.pointsBalance + finalDelta
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (currentLang == AppLanguage.ARABIC) "تعديل رصيد النقاط" else "Adjust Points Balance",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = if (currentLang == AppLanguage.ARABIC)
+                        "الرصيد الحالي: ${currentUser.pointsBalance} نقطة"
+                    else
+                        "Current Balance: ${currentUser.pointsBalance} PTS",
+                    color = MetricOrange,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                // Credit vs Debit Selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FilterChip(
+                        selected = isCredit,
+                        onClick = { isCredit = true },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "منح رصيد (+)" else "Credit (+)") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MetricGreen,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                    FilterChip(
+                        selected = !isCredit,
+                        onClick = { isCredit = false },
+                        label = { Text(if (currentLang == AppLanguage.ARABIC) "خصم رصيد (-)" else "Debit (-)") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MetricRed,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+
+                // Points Amount
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = {
+                        amountText = it.filter { ch -> ch.isDigit() }
+                        errorMessage = null
+                    },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "عدد النقاط" else "Points Amount") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Mandatory Reason
+                OutlinedTextField(
+                    value = reasonText,
+                    onValueChange = {
+                        reasonText = it
+                        errorMessage = null
+                    },
+                    label = { Text(if (currentLang == AppLanguage.ARABIC) "سبب التعديل (مطلوب للتدقيق)" else "Audit Reason (Mandatory)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Resulting balance preview
+                Text(
+                    text = if (currentLang == AppLanguage.ARABIC)
+                        "الرصيد بعد التعديل: $resultingBalance نقطة"
+                    else
+                        "Resulting Balance: $resultingBalance PTS",
+                    color = if (resultingBalance < 0) MetricRed else TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage!!,
+                        color = MetricRed,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            CineStreamLoadingButton(
+                onClick = {
+                    if (amountValue <= 0L) {
+                        errorMessage = if (currentLang == AppLanguage.ARABIC) "يرجى إدخال عدد نقاط أكبر من الصفر" else "Enter an amount greater than 0"
+                        return@CineStreamLoadingButton
+                    }
+                    if (reasonText.trim().isBlank()) {
+                        errorMessage = if (currentLang == AppLanguage.ARABIC) "سبب التعديل إلزامي لتوثيق سجل التدقيق" else "Audit reason cannot be blank"
+                        return@CineStreamLoadingButton
+                    }
+                    if (resultingBalance < 0L) {
+                        errorMessage = if (currentLang == AppLanguage.ARABIC) "العملية مرفوضة: لا يمكن أن يكون الرصيد سالباً" else "Rejected: Resulting balance cannot be negative"
+                        return@CineStreamLoadingButton
+                    }
+                    if (resultingBalance > 1_000_000L) {
+                        errorMessage = if (currentLang == AppLanguage.ARABIC) "العملية مرفوضة: تجاوز الحد الأقصى (1,000,000 نقطة)" else "Rejected: Balance ceiling exceeded (1,000,000 pts)"
+                        return@CineStreamLoadingButton
+                    }
+                    onConfirm(finalDelta, reasonText.trim())
+                },
+                containerColor = if (isCredit) MetricGreen else MetricRed,
+                shape = RoundedCornerShape(10.dp),
+                text = AppStrings.confirm(currentLang)
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(AppStrings.cancel(currentLang), color = TextSecondary)
+            }
+        },
+        containerColor = DarkSurface
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SubscriptionManagementDialog(
@@ -1366,9 +1852,12 @@ private fun SubscriptionManagementDialog(
     onDismiss: () -> Unit,
     onConfirm: (tier: String, durationDays: Int?) -> Unit
 ) {
-    var selectedTier by remember { mutableStateOf(if (currentUser.subscriptionTier == "vip") "vip" else "pro") }
-    var selectedDurationIndex by remember { mutableStateOf(0) } // 0: 30d, 1: 90d, 2: 180d, 3: 365d, 4: Lifetime, 5: Custom
-    var customDaysText by remember { mutableStateOf("60") }
+    var selectedTier by remember {
+        mutableStateOf(if (currentUser.subscriptionTier.equals("PRO_LITE", ignoreCase = true)) "PRO_LITE" else "PRO")
+    }
+    var selectedLiteDurationIndex by remember { mutableStateOf(1) } // 0: 1d, 1: 7d, 2: 10d, 3: Custom
+    var selectedProDurationIndex by remember { mutableStateOf(0) } // 0: 30d, 1: Custom
+    var customDaysText by remember { mutableStateOf("14") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1382,13 +1871,45 @@ private fun SubscriptionManagementDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(AppStrings.selectTier(currentLang), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = if (currentLang == AppLanguage.ARABIC) "اختر باقة الاشتراك Canonical:" else "Select Canonical Tier:",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                // Absolute Rule Clarification Banner (Phase 03A)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MetricPurpleBg.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .border(1.dp, MetricPurple.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MetricPurple,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (currentLang == AppLanguage.ARABIC)
+                                "ميزة الاشتراك: إزالة الإعلانات فقط. لا توجد قيود على جودة الفيديو لجميع المستخدمين."
+                            else
+                                "Subscription Benefit: Remove Ads only. Video quality is not restricted.",
+                            color = Color.White,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FilterChip(
-                        selected = selectedTier == "pro",
-                        onClick = { selectedTier = "pro" },
-                        label = { Text("PRO TIER", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                        selected = selectedTier == "PRO",
+                        onClick = { selectedTier = "PRO" },
+                        label = { Text("PRO (30 Days)", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MetricPurple,
                             selectedLabelColor = Color.White,
@@ -1397,11 +1918,11 @@ private fun SubscriptionManagementDialog(
                         )
                     )
                     FilterChip(
-                        selected = selectedTier == "vip",
-                        onClick = { selectedTier = "vip" },
-                        label = { Text("VIP TIER", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                        selected = selectedTier == "PRO_LITE",
+                        onClick = { selectedTier = "PRO_LITE" },
+                        label = { Text("PRO LITE", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MetricPurple,
+                            selectedContainerColor = MetricBlue,
                             selectedLabelColor = Color.White,
                             containerColor = DarkSurfaceVariant,
                             labelColor = TextSecondary
@@ -1410,63 +1931,109 @@ private fun SubscriptionManagementDialog(
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(AppStrings.banDurationLabel(currentLang), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-
-                val durationOptions = listOf(
-                    AppStrings.sub1Month(currentLang) to 30,
-                    AppStrings.sub3Months(currentLang) to 90,
-                    AppStrings.sub6Months(currentLang) to 180,
-                    AppStrings.sub1Year(currentLang) to 365,
-                    AppStrings.subLifetime(currentLang) to null,
-                    AppStrings.customDays(currentLang) to -1
+                Text(
+                    text = if (currentLang == AppLanguage.ARABIC) "مدة الاشتراك المحددة:" else "Preset Duration:",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    durationOptions.forEachIndexed { index, (label, _) ->
-                        FilterChip(
-                            selected = selectedDurationIndex == index,
-                            onClick = { selectedDurationIndex = index },
-                            label = { Text(label, fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MetricPurple,
-                                selectedLabelColor = Color.White,
-                                containerColor = DarkSurfaceVariant,
-                                labelColor = TextSecondary
+                if (selectedTier == "PRO_LITE") {
+                    val liteOptions = listOf(
+                        (if (currentLang == AppLanguage.ARABIC) "يوم واحد (1 Day)" else "1 Day") to 1,
+                        (if (currentLang == AppLanguage.ARABIC) "7 أيام (7 Days)" else "7 Days") to 7,
+                        (if (currentLang == AppLanguage.ARABIC) "10 أيام (10 Days)" else "10 Days") to 10,
+                        AppStrings.customDays(currentLang) to -1
+                    )
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        liteOptions.forEachIndexed { index, (label, _) ->
+                            FilterChip(
+                                selected = selectedLiteDurationIndex == index,
+                                onClick = { selectedLiteDurationIndex = index },
+                                label = { Text(label, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MetricBlue,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = DarkSurfaceVariant,
+                                    labelColor = TextSecondary
+                                )
                             )
+                        }
+                    }
+
+                    if (selectedLiteDurationIndex == 3) {
+                        OutlinedTextField(
+                            value = customDaysText,
+                            onValueChange = { customDaysText = it.filter { ch -> ch.isDigit() } },
+                            label = { Text(AppStrings.customDays(currentLang)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
-
-                if (selectedDurationIndex == 5) {
-                    OutlinedTextField(
-                        value = customDaysText,
-                        onValueChange = { customDaysText = it.filter { ch -> ch.isDigit() } },
-                        label = { Text(AppStrings.customDays(currentLang)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                } else {
+                    val proOptions = listOf(
+                        (if (currentLang == AppLanguage.ARABIC) "30 يوماً (30 Days)" else "30 Days (Standard)") to 30,
+                        AppStrings.customDays(currentLang) to -1
                     )
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        proOptions.forEachIndexed { index, (label, _) ->
+                            FilterChip(
+                                selected = selectedProDurationIndex == index,
+                                onClick = { selectedProDurationIndex = index },
+                                label = { Text(label, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MetricPurple,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = DarkSurfaceVariant,
+                                    labelColor = TextSecondary
+                                )
+                            )
+                        }
+                    }
+
+                    if (selectedProDurationIndex == 1) {
+                        OutlinedTextField(
+                            value = customDaysText,
+                            onValueChange = { customDaysText = it.filter { ch -> ch.isDigit() } },
+                            label = { Text(AppStrings.customDays(currentLang)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             CineStreamLoadingButton(
                 onClick = {
-                    val durationDays: Int? = when (selectedDurationIndex) {
-                        0 -> 30
-                        1 -> 90
-                        2 -> 180
-                        3 -> 365
-                        4 -> null // Lifetime
-                        5 -> customDaysText.toIntOrNull() ?: 30
-                        else -> 30
+                    val durationDays: Int = if (selectedTier == "PRO_LITE") {
+                        when (selectedLiteDurationIndex) {
+                            0 -> 1
+                            1 -> 7
+                            2 -> 10
+                            3 -> customDaysText.toIntOrNull() ?: 7
+                            else -> 7
+                        }
+                    } else {
+                        when (selectedProDurationIndex) {
+                            0 -> 30
+                            1 -> customDaysText.toIntOrNull() ?: 30
+                            else -> 30
+                        }
                     }
                     onConfirm(selectedTier, durationDays)
                 },
-                containerColor = MetricPurple,
+                containerColor = if (selectedTier == "PRO_LITE") MetricBlue else MetricPurple,
                 shape = RoundedCornerShape(10.dp),
                 text = AppStrings.confirm(currentLang)
             )

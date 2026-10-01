@@ -104,6 +104,21 @@ object FirebaseCollections {
      * Status: CANONICAL ACTIVE
      */
     const val PRO_REQUESTS = "pro_requests"
+
+    /**
+     * Canonical Reward Tasks Catalog (Phase 03A).
+     * Path: /reward_tasks/{taskId}
+     * Status: CANONICAL ACTIVE
+     */
+    const val REWARD_TASKS = "reward_tasks"
+
+    /**
+     * Canonical Leaderboard & Historical Cycles (Phase 03A).
+     * Path: /leaderboard/{docId} & /leaderboard_history/{cycleId}
+     * Status: CANONICAL ACTIVE
+     */
+    const val LEADERBOARD = "leaderboard"
+    const val LEADERBOARD_HISTORY = "leaderboard_history"
 }
 
 object FirebaseSubcollections {
@@ -112,6 +127,13 @@ object FirebaseSubcollections {
      * Path: /support_conversations/{conversationId}/messages/{messageId}
      */
     const val MESSAGES = "messages"
+
+    /**
+     * Canonical Point Transactions Ledger (Phase 03A).
+     * Path: /users/{uid}/point_transactions/{txId}
+     * Status: CANONICAL ACTIVE (Immutable Ledger)
+     */
+    const val POINT_TRANSACTIONS = "point_transactions"
 }
 
 object FirebaseConfigDocs {
@@ -131,4 +153,18 @@ object FirebaseConfigDocs {
      * Status: CANONICAL ACTIVE (Phase EXT-CANONICAL-01)
      */
     const val SEARCH_ORDER = "search_order"
+
+    /**
+     * Canonical system feature control flags (Phase 03A).
+     * Document path: /config/features
+     * Status: CANONICAL ACTIVE
+     */
+    const val FEATURES = "features"
+
+    /**
+     * Canonical points economy parameters and redemption pricing (Phase 03A).
+     * Document path: /config/economy
+     * Status: CANONICAL ACTIVE
+     */
+    const val ECONOMY = "economy"
 }

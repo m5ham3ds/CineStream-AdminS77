@@ -5,7 +5,99 @@ import com.google.firebase.firestore.IgnoreExtraProperties
 enum class SubscriptionState {
     FREE,
     ACTIVE_PRO,
-    EXPIRED_PRO
+    ACTIVE_PRO_LITE,
+    EXPIRED_PRO,
+    EXPIRED;
+
+    val isAdFree: Boolean
+        get() = this == ACTIVE_PRO || this == ACTIVE_PRO_LITE
+}
+
+/**
+ * Canonical Subscription Tiers (Phase 03A).
+ * Sourced strictly in UPPERCASE.
+ */
+enum class CanonicalSubscriptionTier {
+    FREE,
+    PRO_LITE,
+    PRO;
+
+    companion object {
+        fun fromString(value: String?): CanonicalSubscriptionTier {
+            val normalized = value?.trim()?.uppercase() ?: return FREE
+            return when {
+                normalized == "FREE" -> FREE
+                normalized == "PRO_LITE" || normalized == "PRO LITE" || normalized == "PRO-LITE" -> PRO_LITE
+                normalized == "PRO" || normalized == "PREMIUM" || normalized == "VIP" -> PRO
+                else -> FREE
+            }
+        }
+    }
+}
+
+/**
+ * Canonical Plan SKUs and Duration mapping.
+ */
+object CanonicalPlanId {
+    const val FREE = "free"
+    const val PRO_LITE_1D = "pro_lite_1d"
+    const val PRO_LITE_7D = "pro_lite_7d"
+    const val PRO_LITE_10D = "pro_lite_10d"
+    const val PRO_30D = "pro_30d"
+
+    fun from(tier: CanonicalSubscriptionTier, durationDays: Int?): String {
+        return when (tier) {
+            CanonicalSubscriptionTier.FREE -> FREE
+            CanonicalSubscriptionTier.PRO_LITE -> when (durationDays) {
+                1 -> PRO_LITE_1D
+                7 -> PRO_LITE_7D
+                10 -> PRO_LITE_10D
+                else -> if (durationDays != null) "pro_lite_${durationDays}d" else PRO_LITE_7D
+            }
+            CanonicalSubscriptionTier.PRO -> when (durationDays) {
+                30 -> PRO_30D
+                else -> if (durationDays != null) "pro_${durationDays}d" else PRO_30D
+            }
+        }
+    }
+}
+
+enum class CanonicalSubscriptionStatus {
+    ACTIVE,
+    EXPIRED,
+    CANCELED,
+    PENDING;
+
+    companion object {
+        fun fromString(value: String?): CanonicalSubscriptionStatus {
+            return when (value?.trim()?.uppercase()) {
+                "ACTIVE" -> ACTIVE
+                "EXPIRED" -> EXPIRED
+                "CANCELED" -> CANCELED
+                "PENDING" -> PENDING
+                else -> ACTIVE
+            }
+        }
+    }
+}
+
+enum class CanonicalSubscriptionSource {
+    MONEY,
+    POINTS,
+    ADMIN_GRANT,
+    LEGACY;
+
+    companion object {
+        fun fromString(value: String?): CanonicalSubscriptionSource {
+            return when (value?.trim()?.uppercase()) {
+                "MONEY" -> MONEY
+                "POINTS" -> POINTS
+                "ADMIN_GRANT" -> ADMIN_GRANT
+                "LEGACY" -> LEGACY
+                else -> LEGACY
+            }
+        }
+    }
 }
 
 @IgnoreExtraProperties
@@ -22,16 +114,26 @@ data class User(
     val lastLoginTimestamp: Long = lastLoginAt,
     val lastActiveAt: Long = updatedAt,
     val isActive: Boolean = true,
-    // Canonical Subscription Fields (Authoritative Contract v1)
-    val isPremium: Boolean = false,
-    val subscriptionTier: String = "free",
-    val subscriptionStatus: String = "free",
+    // Canonical Subscription Fields (Authoritative Contract Phase 03A)
+    val subscriptionTier: String = "FREE",
+    val planId: String = "free",
+    val durationDays: Int? = null,
+    val subscriptionStatus: String = "ACTIVE",
+    val subscriptionSource: String = "LEGACY",
+    val subscriptionReferenceId: String? = null,
+    val subscriptionStartedAt: Long? = null,
     val subscriptionExpiresAt: Long? = null,
     // Compatibility Subscription Fields (Consumers: Legacy Users App)
+    val isPremium: Boolean = false,
     val isPro: Boolean = isPremium,
     val plan: String? = subscriptionTier,
     val proPlan: String? = subscriptionTier,
     val proExpiresAt: Long? = subscriptionExpiresAt,
+    // Canonical Points Economy (Cached Summary Fields)
+    val pointsBalance: Long = 0L,
+    val totalPointsEarned: Long = 0L,
+    val totalPointsSpent: Long = 0L,
+    // Technical Account & Feature Permissions (STRICTLY INDEPENDENT from Subscription!)
     val role: String = "user",
     // Account-level ban flags (canonical security fields in firestore.rules)
     val isBanned: Boolean = false,
@@ -54,6 +156,7 @@ data class User(
     val p2pBan: Boolean = false,
     val deviceLimit: Int = 2,
     val maxDevices: Int = deviceLimit,
+    // Independent Technical Permissions (NEVER granted or restricted by Subscription tier!)
     val allowedQuality: String? = null,
     val downloadLimit: Int? = null,
     val offlineDaysOverride: Int? = null,
@@ -93,31 +196,56 @@ data class User(
     val isPermanentBan: Boolean
         get() = isBanned && banExpiresAt == null
 
+    // Canonical Subscription Tier Normalization & Precedence
+    val canonicalTier: CanonicalSubscriptionTier
+        get() {
+            val raw = subscriptionTier.trim()
+            if (raw.isNotBlank() && !raw.equals("free", ignoreCase = true)) {
+                val upper = raw.uppercase()
+                if (upper == "PRO_LITE" || upper == "PRO LITE" || upper == "PRO-LITE") return CanonicalSubscriptionTier.PRO_LITE
+                if (upper == "PRO" || upper == "PREMIUM" || upper == "VIP") return CanonicalSubscriptionTier.PRO
+            }
+            val legacyPlan = (plan ?: proPlan)?.trim()?.uppercase()
+            if (!legacyPlan.isNullOrBlank() && legacyPlan != "FREE") {
+                if (legacyPlan == "PRO_LITE" || legacyPlan == "PRO LITE" || legacyPlan == "PRO-LITE") return CanonicalSubscriptionTier.PRO_LITE
+                if (legacyPlan == "PRO" || legacyPlan == "PREMIUM" || legacyPlan == "VIP") return CanonicalSubscriptionTier.PRO
+            }
+            // Compatibility fallback if canonical tier was blank or "free" but legacy flags are true
+            if (isPremium || isPro) {
+                return CanonicalSubscriptionTier.PRO
+            }
+            return CanonicalSubscriptionTier.FREE
+        }
+
     // Subscription state machine & deterministic expiration interpretation
     val subscriptionState: SubscriptionState
         get() {
+            val tier = canonicalTier
+            if (tier == CanonicalSubscriptionTier.FREE) {
+                return SubscriptionState.FREE
+            }
             val now = System.currentTimeMillis()
             val effectiveExpiresAt = subscriptionExpiresAt ?: proExpiresAt
-            val hasProPlan = (subscriptionTier != "free" && subscriptionTier.isNotBlank()) ||
-                    (plan != null && plan != "free" && plan.isNotBlank()) ||
-                    (proPlan != null && proPlan != "free" && proPlan.isNotBlank())
-            val hasProFlag = isPremium || isPro
 
             if (effectiveExpiresAt != null && effectiveExpiresAt <= now) {
-                return if (hasProFlag || hasProPlan) {
-                    SubscriptionState.EXPIRED_PRO
-                } else {
-                    SubscriptionState.FREE
-                }
+                return if (tier == CanonicalSubscriptionTier.PRO_LITE) SubscriptionState.EXPIRED else SubscriptionState.EXPIRED_PRO
             }
-            if (hasProFlag || hasProPlan) {
-                return SubscriptionState.ACTIVE_PRO
+            return when (tier) {
+                CanonicalSubscriptionTier.PRO_LITE -> SubscriptionState.ACTIVE_PRO_LITE
+                CanonicalSubscriptionTier.PRO -> SubscriptionState.ACTIVE_PRO
+                CanonicalSubscriptionTier.FREE -> SubscriptionState.FREE
             }
-            return SubscriptionState.FREE
         }
 
+    /**
+     * Absolute Rule: Subscription benefit is REMOVE_ADS only.
+     * All video qualities remain accessible to all users.
+     */
+    val isAdFree: Boolean
+        get() = subscriptionState == SubscriptionState.ACTIVE_PRO || subscriptionState == SubscriptionState.ACTIVE_PRO_LITE
+
     val isSubscriptionActive: Boolean
-        get() = subscriptionState == SubscriptionState.ACTIVE_PRO
+        get() = isAdFree
 }
 
 @IgnoreExtraProperties

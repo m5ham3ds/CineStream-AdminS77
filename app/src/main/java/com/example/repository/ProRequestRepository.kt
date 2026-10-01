@@ -105,6 +105,9 @@ class ProRequestRepository(
 
         var userEmail = "Unknown User"
         var requestedPlan = "pro"
+        var grantedTier = com.example.models.CanonicalSubscriptionTier.PRO
+        var grantedPlanId = com.example.models.CanonicalPlanId.PRO_30D
+        var finalExpiresAt = now + 30L * 24 * 60 * 60 * 1000L
 
         try {
             firestore.runTransaction { transaction ->
@@ -120,6 +123,52 @@ class ProRequestRepository(
 
                 userEmail = snapshot.getString("userEmail") ?: "Unknown User"
                 requestedPlan = snapshot.getString("requestedPlan") ?: "pro"
+                val requestedDuration = snapshot.getString("requestedDuration") ?: "30 days"
+                val userId = snapshot.getString("userId") ?: ""
+
+                grantedTier = com.example.models.CanonicalSubscriptionTier.fromString(requestedPlan)
+                val durationDays = when {
+                    requestedDuration.contains("1 day") || requestedDuration.contains("1d") -> 1
+                    requestedDuration.contains("7 day") || requestedDuration.contains("7d") -> 7
+                    requestedDuration.contains("10 day") || requestedDuration.contains("10d") -> 10
+                    else -> if (grantedTier == com.example.models.CanonicalSubscriptionTier.PRO_LITE) 7 else 30
+                }
+                grantedPlanId = com.example.models.CanonicalPlanId.from(grantedTier, durationDays)
+
+                if (userId.isNotBlank()) {
+                    val userDocRef = firestore.collection(FirebaseCollections.USERS).document(userId)
+                    val userSnap = transaction.get(userDocRef)
+                    val currentExpiresAt = if (userSnap.exists()) {
+                        userSnap.getLong("subscriptionExpiresAt")?.takeIf { it > 0L }
+                            ?: userSnap.getLong("proExpiresAt")?.takeIf { it > 0L }
+                    } else null
+
+                    val durationMillis = durationDays.toLong() * 24 * 60 * 60 * 1000L
+                    val baseTime = if (currentExpiresAt != null && currentExpiresAt > now) {
+                        currentExpiresAt // Extension rule: extend from active expiration
+                    } else {
+                        now
+                    }
+                    finalExpiresAt = baseTime + durationMillis
+
+                    val userUpdates = hashMapOf<String, Any?>(
+                        "subscriptionTier" to grantedTier.name,
+                        "planId" to grantedPlanId,
+                        "durationDays" to durationDays,
+                        "subscriptionStatus" to com.example.models.CanonicalSubscriptionStatus.ACTIVE.name,
+                        "subscriptionSource" to com.example.models.CanonicalSubscriptionSource.MONEY.name,
+                        "subscriptionReferenceId" to requestId,
+                        "subscriptionStartedAt" to now,
+                        "subscriptionExpiresAt" to finalExpiresAt,
+                        "isPremium" to true,
+                        "isPro" to true,
+                        "plan" to grantedTier.name.lowercase(),
+                        "proPlan" to grantedTier.name.lowercase(),
+                        "proExpiresAt" to finalExpiresAt,
+                        "updatedAt" to now
+                    )
+                    transaction.set(userDocRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())
+                }
 
                 val updates = hashMapOf<String, Any?>(
                     "status" to ProRequestStatus.APPROVED.name,
@@ -153,7 +202,7 @@ class ProRequestRepository(
             action = "APPROVE_PRO_REQUEST",
             targetType = "PRO_REQUEST",
             targetId = requestId,
-            details = "Approved Pro Request for $userEmail (Plan: $requestedPlan, Admin: $adminEmail)"
+            details = "Approved Pro Request for $userEmail. Granted ${grantedTier.name} ($grantedPlanId) until $finalExpiresAt via MONEY"
         )
     }
 

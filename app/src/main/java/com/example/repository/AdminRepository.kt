@@ -2,6 +2,7 @@ package com.example.repository
 
 import com.example.contract.FirebaseCollections
 import com.example.contract.FirebaseConfigDocs
+import com.example.contract.FirebaseSubcollections
 import com.example.diagnostics.AppLogger
 import com.example.models.*
 import com.example.state.AppSettings
@@ -64,13 +65,29 @@ class AdminRepository {
         return try {
             val uid = doc.getString("uid")?.ifBlank { doc.id } ?: doc.id
             val isPrem = doc.getBoolean("isPremium") ?: doc.getBoolean("isPro") ?: false
-            val subTier = doc.getString("subscriptionTier") ?: doc.getString("plan") ?: doc.getString("proPlan") ?: "free"
-            val subStatus = doc.getString("subscriptionStatus") ?: if (isPrem) "active" else "free"
+            val rawSubTier = doc.getString("subscriptionTier")
+            val rawPlan = doc.getString("plan") ?: doc.getString("proPlan")
+            val canonicalTier = when {
+                !rawSubTier.isNullOrBlank() -> CanonicalSubscriptionTier.fromString(rawSubTier)
+                !rawPlan.isNullOrBlank() -> CanonicalSubscriptionTier.fromString(rawPlan)
+                isPrem -> CanonicalSubscriptionTier.PRO
+                else -> CanonicalSubscriptionTier.FREE
+            }
+            val durationDays = doc.getLong("durationDays")?.toInt()
+            val planId = doc.getString("planId") ?: CanonicalPlanId.from(canonicalTier, durationDays)
+            val subStatus = doc.getString("subscriptionStatus") ?: if (canonicalTier != CanonicalSubscriptionTier.FREE) "ACTIVE" else "FREE"
+            val subSource = doc.getString("subscriptionSource") ?: "LEGACY"
+            val subRefId = doc.getString("subscriptionReferenceId")
+            val subStartedAt = extractTimestampMillis(doc, "subscriptionStartedAt", 0L).takeIf { it > 0L }
             val subExpires = if (doc.contains("subscriptionExpiresAt")) {
                 extractTimestampMillis(doc, "subscriptionExpiresAt", 0L).takeIf { it > 0L }
             } else if (doc.contains("proExpiresAt")) {
                 extractTimestampMillis(doc, "proExpiresAt", 0L).takeIf { it > 0L }
             } else null
+
+            val ptsBalance = doc.getLong("pointsBalance") ?: 0L
+            val ptsEarned = doc.getLong("totalPointsEarned") ?: 0L
+            val ptsSpent = doc.getLong("totalPointsSpent") ?: 0L
 
             val hasPending = doc.metadata.hasPendingWrites()
             val isBanned = doc.getBoolean("isBanned") ?: false
@@ -120,14 +137,22 @@ class AdminRepository {
                 lastLoginTimestamp = lastLogin,
                 lastActiveAt = updated,
                 isActive = doc.getBoolean("isActive") ?: !isBanned,
-                isPremium = isPrem,
-                subscriptionTier = subTier,
+                subscriptionTier = canonicalTier.name,
+                planId = planId,
+                durationDays = durationDays,
                 subscriptionStatus = subStatus,
+                subscriptionSource = subSource,
+                subscriptionReferenceId = subRefId,
+                subscriptionStartedAt = subStartedAt,
                 subscriptionExpiresAt = subExpires,
+                isPremium = isPrem,
                 isPro = isPrem,
-                plan = subTier,
-                proPlan = subTier,
+                plan = canonicalTier.name.lowercase(),
+                proPlan = canonicalTier.name.lowercase(),
                 proExpiresAt = subExpires,
+                pointsBalance = ptsBalance,
+                totalPointsEarned = ptsEarned,
+                totalPointsSpent = ptsSpent,
                 role = doc.getString("role") ?: "user",
                 isBanned = isBanned,
                 banReason = banReason,
@@ -433,49 +458,427 @@ class AdminRepository {
     }
 
     /**
-     * Authoritative Subscription Update (Phase C1).
-     * Writes canonical fields (isPremium, subscriptionTier, subscriptionStatus, subscriptionExpiresAt)
-     * and strictly synchronized compatibility mirrors (isPro, plan, proPlan, proExpiresAt).
+     * Canonical Subscription Update (Phase 03A).
+     * Writes canonical fields (subscriptionTier, planId, durationDays, subscriptionStatus,
+     * subscriptionSource, subscriptionReferenceId, subscriptionStartedAt, subscriptionExpiresAt)
+     * and strictly synchronized compatibility mirrors (isPremium, isPro, plan, proPlan, proExpiresAt).
+     *
+     * Subscription Extension Rule:
+     * If user already has an active subscription, new expiration extends from existing expiration.
+     *
+     * Absolute Rule:
+     * Subscription benefit = REMOVE_ADS only.
+     * Technical permissions (allowedQuality, downloadLimit) are NEVER modified as a side-effect.
      */
     suspend fun updateSubscription(
         userId: String,
         tier: String,
-        expiresAt: Long?,
-        status: String = if (tier.lowercase() != "free") "active" else "free"
+        durationDays: Int? = null,
+        planId: String? = null,
+        source: CanonicalSubscriptionSource = CanonicalSubscriptionSource.ADMIN_GRANT,
+        referenceId: String? = null,
+        status: String? = null
     ) {
-        val isPrem = tier.lowercase() != "free"
-        val normalizedTier = tier.lowercase()
+        val canonicalTier = CanonicalSubscriptionTier.fromString(tier)
+        val isPaid = canonicalTier != CanonicalSubscriptionTier.FREE
         val now = System.currentTimeMillis()
+
+        // Fetch current document to apply Extension Rule
+        val currentDoc = try {
+            usersCollection.document(userId).get().await()
+        } catch (e: Exception) {
+            null
+        }
+
+        val currentExpiresAt = if (currentDoc != null && currentDoc.exists()) {
+            if (currentDoc.contains("subscriptionExpiresAt")) {
+                extractTimestampMillis(currentDoc, "subscriptionExpiresAt", 0L).takeIf { it > 0L }
+            } else if (currentDoc.contains("proExpiresAt")) {
+                extractTimestampMillis(currentDoc, "proExpiresAt", 0L).takeIf { it > 0L }
+            } else null
+        } else null
+
+        val finalDurationDays = if (isPaid) {
+            durationDays ?: when (canonicalTier) {
+                CanonicalSubscriptionTier.PRO -> 30
+                CanonicalSubscriptionTier.PRO_LITE -> 7
+                CanonicalSubscriptionTier.FREE -> null
+            }
+        } else null
+
+        val finalPlanId = if (isPaid) {
+            planId ?: CanonicalPlanId.from(canonicalTier, finalDurationDays)
+        } else {
+            CanonicalPlanId.FREE
+        }
+
+        val finalExpiresAt: Long? = if (isPaid && finalDurationDays != null) {
+            val durationMillis = finalDurationDays.toLong() * 24 * 60 * 60 * 1000L
+            val baseTime = if (currentExpiresAt != null && currentExpiresAt > now) {
+                currentExpiresAt // Extend from existing active expiration!
+            } else {
+                now // Start from now
+            }
+            baseTime + durationMillis
+        } else null
+
+        val canonicalStatus = if (isPaid) {
+            status ?: CanonicalSubscriptionStatus.ACTIVE.name
+        } else {
+            CanonicalSubscriptionStatus.ACTIVE.name
+        }
+
         val updates = hashMapOf<String, Any?>(
-            // Canonical Fields
-            "isPremium" to isPrem,
-            "subscriptionTier" to normalizedTier,
-            "subscriptionStatus" to if (isPrem) status else "free",
-            "subscriptionExpiresAt" to if (isPrem) expiresAt else null,
+            // Canonical Fields (Stored in UPPERCASE: FREE, PRO_LITE, PRO)
+            "subscriptionTier" to canonicalTier.name,
+            "planId" to finalPlanId,
+            "durationDays" to finalDurationDays,
+            "subscriptionStatus" to canonicalStatus,
+            "subscriptionSource" to source.name,
+            "subscriptionReferenceId" to referenceId,
+            "subscriptionStartedAt" to now,
+            "subscriptionExpiresAt" to finalExpiresAt,
             // Compatibility Fields for Legacy Consumers
-            "isPro" to isPrem,
-            "plan" to normalizedTier,
-            "proPlan" to normalizedTier,
-            "proExpiresAt" to if (isPrem) expiresAt else null,
+            "isPremium" to isPaid,
+            "isPro" to isPaid,
+            "plan" to canonicalTier.name.lowercase(),
+            "proPlan" to canonicalTier.name.lowercase(),
+            "proExpiresAt" to finalExpiresAt,
             "updatedAt" to now
         )
+        // CRITICAL INVARIANT: allowedQuality and downloadLimit are completely UNTOUCHED here.
         resilientSetUser(userId, updates)
-        val action = if (isPrem) "GRANT_SUBSCRIPTION" else "REVOKE_SUBSCRIPTION"
-        val expiryDesc = if (expiresAt != null) "Expires at $expiresAt" else "Lifetime / Indefinite"
+
+        val action = if (isPaid) "GRANT_SUBSCRIPTION" else "REVOKE_SUBSCRIPTION"
+        val expiryDesc = if (finalExpiresAt != null) "Expires at $finalExpiresAt" else "Lifetime / Indefinite"
         logAudit(
             action = action,
             targetType = "USER",
             targetId = userId,
-            details = "Subscription updated: Tier=$normalizedTier, Status=$status, Duration=$expiryDesc"
+            details = "Subscription updated: Tier=${canonicalTier.name}, PlanId=$finalPlanId, Status=$canonicalStatus, Duration=${finalDurationDays ?: 0}d, Expiry=$expiryDesc, Source=${source.name}"
         )
     }
 
     /**
-     * Authoritative Subscription Revocation (Phase C1).
-     * Resets user to free tier immediately.
+     * Authoritative Subscription Revocation (Phase 03A).
+     * Resets user to canonical FREE tier immediately.
      */
     suspend fun revokeSubscription(userId: String) {
-        updateSubscription(userId, tier = "free", expiresAt = null, status = "free")
+        updateSubscription(
+            userId = userId,
+            tier = CanonicalSubscriptionTier.FREE.name,
+            durationDays = null,
+            planId = CanonicalPlanId.FREE,
+            source = CanonicalSubscriptionSource.ADMIN_GRANT
+        )
+    }
+
+    /**
+     * Controlled Administrative Point Adjustment (Phase 03A).
+     * Atomically mutates cached balance and appends immutable ledger record.
+     */
+    suspend fun adjustUserPoints(
+        userId: String,
+        amount: Long,
+        reason: String,
+        actorUid: String,
+        actorEmail: String
+    ): PointTransaction {
+        require(userId.isNotBlank()) { "User ID cannot be blank" }
+        require(amount != 0L) { "Adjustment amount cannot be zero" }
+        require(reason.isNotBlank()) { "Adjustment reason cannot be blank" }
+
+        val userDocRef = usersCollection.document(userId)
+        val now = System.currentTimeMillis()
+        val txId = "tx_${now}_${java.util.UUID.randomUUID().toString().take(8)}"
+        val txDocRef = userDocRef.collection(FirebaseSubcollections.POINT_TRANSACTIONS).document(txId)
+
+        var createdTx: PointTransaction? = null
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(userDocRef)
+            if (!snapshot.exists()) {
+                throw IllegalArgumentException("User $userId does not exist")
+            }
+
+            val oldBalance = snapshot.getLong("pointsBalance") ?: 0L
+            val oldEarned = snapshot.getLong("totalPointsEarned") ?: 0L
+            val oldSpent = snapshot.getLong("totalPointsSpent") ?: 0L
+
+            val newBalance = oldBalance + amount
+            if (newBalance < 0L) {
+                throw IllegalStateException("Adjustment rejected: Resulting balance cannot be negative ($newBalance)")
+            }
+            if (newBalance > 1_000_000L) {
+                throw IllegalStateException("Adjustment rejected: Resulting balance exceeds maximum ceiling of 1,000,000 points ($newBalance)")
+            }
+
+            val newEarned = if (amount > 0L) oldEarned + amount else oldEarned
+            val newSpent = if (amount < 0L) oldSpent + (-amount) else oldSpent
+
+            val txType = if (amount > 0L) PointTransactionType.ADMIN_GRANT.name else PointTransactionType.ADMIN_ADJUSTMENT.name
+
+            val txData = hashMapOf<String, Any?>(
+                "txId" to txId,
+                "userId" to userId,
+                "type" to txType,
+                "amount" to amount,
+                "balanceBefore" to oldBalance,
+                "balanceAfter" to newBalance,
+                "description" to reason.trim(),
+                "createdAt" to now,
+                "actorUid" to actorUid
+            )
+
+            transaction.set(txDocRef, txData)
+            transaction.update(userDocRef, mapOf(
+                "pointsBalance" to newBalance,
+                "totalPointsEarned" to newEarned,
+                "totalPointsSpent" to newSpent,
+                "updatedAt" to now
+            ))
+
+            createdTx = PointTransaction(
+                txId = txId,
+                userId = userId,
+                type = txType,
+                amount = amount,
+                balanceBefore = oldBalance,
+                balanceAfter = newBalance,
+                description = reason.trim(),
+                createdAt = now,
+                actorUid = actorUid
+            )
+        }.await()
+
+        logAudit(
+            action = if (amount >= 0L) "ADMIN_POINTS_GRANT" else "ADMIN_POINTS_ADJUSTMENT",
+            targetType = "USER",
+            targetId = userId,
+            details = "Points adjustment by $actorEmail: $amount (Balance: ${createdTx?.balanceBefore} -> ${createdTx?.balanceAfter}). Reason: ${reason.trim()}"
+        )
+
+        return createdTx ?: throw IllegalStateException("Transaction failed to create point transaction record")
+    }
+
+    /**
+     * Realtime listener for User Point Transactions Ledger.
+     */
+    fun getUserPointTransactions(userId: String): Flow<List<PointTransaction>> = callbackFlow {
+        val listener = usersCollection.document(userId)
+            .collection(FirebaseSubcollections.POINT_TRANSACTIONS)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(100)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    AppLogger.w("AdminRepository", "Error listening to point transactions: ${error.message}")
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        PointTransaction(
+                            txId = doc.getString("txId") ?: doc.id,
+                            userId = doc.getString("userId") ?: userId,
+                            type = doc.getString("type") ?: PointTransactionType.ADMIN_ADJUSTMENT.name,
+                            amount = doc.getLong("amount") ?: 0L,
+                            balanceBefore = doc.getLong("balanceBefore") ?: 0L,
+                            balanceAfter = doc.getLong("balanceAfter") ?: 0L,
+                            referenceId = doc.getString("referenceId"),
+                            description = doc.getString("description") ?: "",
+                            createdAt = extractTimestampMillis(doc, "createdAt", 0L),
+                            actorUid = doc.getString("actorUid") ?: ""
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                trySend(list)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    /**
+     * Realtime listener for Feature Control Configuration (/config/features).
+     */
+    fun getFeatureControlConfig(): Flow<FeatureControlConfig> = callbackFlow {
+        val docRef = configCollection.document(FirebaseConfigDocs.FEATURES)
+        val listener = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                AppLogger.w("AdminRepository", "Error listening to feature config: ${error.message}")
+                return@addSnapshotListener
+            }
+            if (snapshot != null && snapshot.exists()) {
+                try {
+                    val subs = parseFeatureItem(snapshot.get("subscriptions"))
+                    val pts = parseFeatureItem(snapshot.get("points"))
+                    val daily = parseFeatureItem(snapshot.get("dailyLogin"))
+                    val ads = parseFeatureItem(snapshot.get("rewardedAds"))
+                    val tasks = parseFeatureItem(snapshot.get("tasks"))
+                    val lb = parseFeatureItem(snapshot.get("leaderboard"))
+                    val updated = extractTimestampMillis(snapshot, "updatedAt", 0L)
+                    val by = snapshot.getString("updatedBy") ?: ""
+                    trySend(FeatureControlConfig(subs, pts, daily, ads, tasks, lb, updated, by))
+                } catch (e: Exception) {
+                    trySend(FeatureControlConfig())
+                }
+            } else {
+                trySend(FeatureControlConfig())
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    private fun parseFeatureItem(raw: Any?): FeatureItemConfig {
+        if (raw is Map<*, *>) {
+            val status = raw["status"]?.toString() ?: FeatureState.ACTIVE.name
+            val disabled = raw["disabledMessage"]?.toString() ?: "هذه الميزة غير متاحة حالياً"
+            val comingSoon = raw["comingSoonMessage"]?.toString() ?: "هذه الميزة ستضاف قريبًا"
+            return FeatureItemConfig(status, disabled, comingSoon)
+        }
+        return FeatureItemConfig()
+    }
+
+    suspend fun updateFeatureControl(
+        featureKey: String,
+        state: FeatureState,
+        comingSoonMsg: String? = null,
+        disabledMsg: String? = null
+    ) {
+        val docRef = configCollection.document(FirebaseConfigDocs.FEATURES)
+        val now = System.currentTimeMillis()
+        val updates = hashMapOf<String, Any?>(
+            "$featureKey.status" to state.name,
+            "updatedAt" to now
+        )
+        if (comingSoonMsg != null) updates["$featureKey.comingSoonMessage"] = comingSoonMsg
+        if (disabledMsg != null) updates["$featureKey.disabledMessage"] = disabledMsg
+
+        docRef.set(updates, com.google.firebase.firestore.SetOptions.merge()).await()
+        logAudit(
+            action = "UPDATE_FEATURE_CONTROL",
+            targetType = "CONFIG",
+            targetId = "features",
+            details = "Updated feature $featureKey to ${state.name}"
+        )
+    }
+
+    /**
+     * Realtime listener for Economy Configuration (/config/economy).
+     */
+    fun getEconomyConfig(): Flow<EconomyConfig> = callbackFlow {
+        val docRef = configCollection.document(FirebaseConfigDocs.ECONOMY)
+        val listener = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) return@addSnapshotListener
+            if (snapshot != null && snapshot.exists()) {
+                try {
+                    val rawCosts = snapshot.get("redemptionCosts") as? Map<*, *>
+                    val costs = rawCosts?.mapNotNull { (k, v) ->
+                        if (k != null && v is Number) k.toString() to v.toLong() else null
+                    }?.toMap() ?: EconomyConfig().redemptionCosts
+
+                    val rawDaily = snapshot.get("dailyLoginRewards") as? List<*>
+                    val daily = rawDaily?.mapNotNull { (it as? Number)?.toLong() } ?: EconomyConfig().dailyLoginRewards
+
+                    val rewardedPts = snapshot.getLong("rewardedAdPoints") ?: 15L
+                    val dailyCap = snapshot.getLong("rewardedAdDailyCap")?.toInt() ?: 5
+                    val cooldown = snapshot.getLong("rewardedAdCooldownSeconds")?.toInt() ?: 300
+                    val updated = extractTimestampMillis(snapshot, "updatedAt", 0L)
+
+                    trySend(EconomyConfig(costs, daily, rewardedPts, dailyCap, cooldown, updated))
+                } catch (e: Exception) {
+                    trySend(EconomyConfig())
+                }
+            } else {
+                trySend(EconomyConfig())
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun saveEconomyConfig(config: EconomyConfig) {
+        val docRef = configCollection.document(FirebaseConfigDocs.ECONOMY)
+        val now = System.currentTimeMillis()
+        val data = hashMapOf<String, Any?>(
+            "redemptionCosts" to config.redemptionCosts,
+            "dailyLoginRewards" to config.dailyLoginRewards,
+            "rewardedAdPoints" to config.rewardedAdPoints,
+            "rewardedAdDailyCap" to config.rewardedAdDailyCap,
+            "rewardedAdCooldownSeconds" to config.rewardedAdCooldownSeconds,
+            "updatedAt" to now
+        )
+        docRef.set(data, com.google.firebase.firestore.SetOptions.merge()).await()
+        logAudit(
+            action = "UPDATE_ECONOMY_CONFIG",
+            targetType = "CONFIG",
+            targetId = "economy",
+            details = "Updated economy configuration parameters"
+        )
+    }
+
+    /**
+     * Realtime listener for Reward Tasks Catalog (/reward_tasks).
+     */
+    fun getAllRewardTasks(): Flow<List<RewardTask>> = callbackFlow {
+        val listener = firestore.collection(FirebaseCollections.REWARD_TASKS)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        RewardTask(
+                            taskId = doc.getString("taskId") ?: doc.id,
+                            title = doc.getString("title") ?: "",
+                            description = doc.getString("description") ?: "",
+                            rewardPoints = doc.getLong("rewardPoints") ?: 50L,
+                            taskType = doc.getString("taskType") ?: "CUSTOM",
+                            actionUrl = doc.getString("actionUrl"),
+                            isActive = doc.getBoolean("isActive") ?: true,
+                            expiresAt = extractTimestampMillis(doc, "expiresAt", 0L).takeIf { it > 0L },
+                            createdAt = extractTimestampMillis(doc, "createdAt", 0L),
+                            updatedAt = extractTimestampMillis(doc, "updatedAt", 0L)
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                trySend(list)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun saveRewardTask(task: RewardTask) {
+        val docId = task.taskId.ifBlank { "task_${System.currentTimeMillis()}" }
+        val docRef = firestore.collection(FirebaseCollections.REWARD_TASKS).document(docId)
+        val now = System.currentTimeMillis()
+        val data = hashMapOf<String, Any?>(
+            "taskId" to docId,
+            "title" to task.title,
+            "description" to task.description,
+            "rewardPoints" to task.rewardPoints,
+            "taskType" to task.taskType,
+            "actionUrl" to task.actionUrl,
+            "isActive" to task.isActive,
+            "expiresAt" to task.expiresAt,
+            "createdAt" to if (task.createdAt > 0L) task.createdAt else now,
+            "updatedAt" to now
+        )
+        docRef.set(data, com.google.firebase.firestore.SetOptions.merge()).await()
+        logAudit(
+            action = "SAVE_REWARD_TASK",
+            targetType = "TASK",
+            targetId = docId,
+            details = "Saved reward task: ${task.title} (${task.rewardPoints} pts)"
+        )
+    }
+
+    suspend fun deleteRewardTask(taskId: String) {
+        firestore.collection(FirebaseCollections.REWARD_TASKS).document(taskId).delete().await()
+        logAudit(
+            action = "DELETE_REWARD_TASK",
+            targetType = "TASK",
+            targetId = taskId,
+            details = "Deleted reward task $taskId"
+        )
     }
 
     /**

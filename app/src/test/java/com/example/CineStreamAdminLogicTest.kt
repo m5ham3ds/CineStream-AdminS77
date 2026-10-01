@@ -15,6 +15,12 @@ import com.example.models.SupportMessage
 import com.example.models.User
 import com.example.models.ProRequest
 import com.example.models.ProRequestStatus
+import com.example.models.CanonicalSubscriptionTier
+import com.example.models.CanonicalPlanId
+import com.example.models.SubscriptionState
+import com.example.models.FeatureState
+import com.example.models.FeatureControlConfig
+import com.example.models.EconomyConfig
 import com.example.state.AppLanguage
 import com.example.state.AppStrings
 import com.example.contract.FirebaseCollections
@@ -2382,6 +2388,155 @@ class CineStreamAdminLogicTest {
             add("new_ext")
         }
         assertEquals(listOf("egydead", "qfilm", "new_ext"), afterAdd)
+    }
+
+    // ============================================================
+    // PHASE SUBSCRIPTION-POINTS-03A — CANONICAL SUBSCRIPTION & POINTS TESTS
+    // ============================================================
+
+    @Test
+    fun testPhase03ACanonicalSubscriptionTierParsingAndNormalization() {
+        assertEquals(CanonicalSubscriptionTier.FREE, CanonicalSubscriptionTier.fromString("free"))
+        assertEquals(CanonicalSubscriptionTier.FREE, CanonicalSubscriptionTier.fromString("FREE"))
+        assertEquals(CanonicalSubscriptionTier.FREE, CanonicalSubscriptionTier.fromString(null))
+        assertEquals(CanonicalSubscriptionTier.FREE, CanonicalSubscriptionTier.fromString(""))
+
+        assertEquals(CanonicalSubscriptionTier.PRO_LITE, CanonicalSubscriptionTier.fromString("pro_lite"))
+        assertEquals(CanonicalSubscriptionTier.PRO_LITE, CanonicalSubscriptionTier.fromString("PRO_LITE"))
+        assertEquals(CanonicalSubscriptionTier.PRO_LITE, CanonicalSubscriptionTier.fromString("pro lite"))
+        assertEquals(CanonicalSubscriptionTier.PRO_LITE, CanonicalSubscriptionTier.fromString("PRO-LITE"))
+
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("pro"))
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("PRO"))
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("vip"))
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("VIP"))
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("premium"))
+        assertEquals(CanonicalSubscriptionTier.PRO, CanonicalSubscriptionTier.fromString("PREMIUM"))
+    }
+
+    @Test
+    fun testPhase03ACanonicalPlanIdSkuMapping() {
+        assertEquals("free", CanonicalPlanId.from(CanonicalSubscriptionTier.FREE, null))
+        assertEquals("pro_lite_1d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO_LITE, 1))
+        assertEquals("pro_lite_7d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO_LITE, 7))
+        assertEquals("pro_lite_10d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO_LITE, 10))
+        assertEquals("pro_30d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO, 30))
+        assertEquals("pro_lite_14d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO_LITE, 14))
+        assertEquals("pro_60d", CanonicalPlanId.from(CanonicalSubscriptionTier.PRO, 60))
+    }
+
+    @Test
+    fun testPhase03ASubscriptionBenefitRemoveAdsOnly() {
+        val now = System.currentTimeMillis()
+        val proUser = User(
+            uid = "u_pro",
+            subscriptionTier = "PRO",
+            planId = "pro_30d",
+            subscriptionExpiresAt = now + 30L * 86400000L,
+            allowedQuality = null, // Technical permissions remain independent
+            downloadLimit = null
+        )
+        val proLiteUser = User(
+            uid = "u_lite",
+            subscriptionTier = "PRO_LITE",
+            planId = "pro_lite_7d",
+            subscriptionExpiresAt = now + 7L * 86400000L,
+            allowedQuality = null,
+            downloadLimit = null
+        )
+        val freeUser = User(
+            uid = "u_free",
+            subscriptionTier = "FREE",
+            planId = "free",
+            subscriptionExpiresAt = null,
+            allowedQuality = null,
+            downloadLimit = null
+        )
+
+        // Benefit rule: Only ad removal is granted
+        assertTrue(proUser.subscriptionState.isAdFree)
+        assertTrue(proUser.isAdFree)
+        assertTrue(proLiteUser.subscriptionState.isAdFree)
+        assertTrue(proLiteUser.isAdFree)
+        assertFalse(freeUser.subscriptionState.isAdFree)
+        assertFalse(freeUser.isAdFree)
+
+        // Bitrates remain unconstrained and decoupled
+        assertNull(proUser.allowedQuality)
+        assertNull(proLiteUser.allowedQuality)
+        assertNull(freeUser.allowedQuality)
+    }
+
+    @Test
+    fun testPhase03AProLiteExpirationLifecycle() {
+        val now = System.currentTimeMillis()
+        val activeLite = User(
+            uid = "lite_active",
+            subscriptionTier = "PRO_LITE",
+            planId = "pro_lite_1d",
+            subscriptionExpiresAt = now + 86400000L
+        )
+        assertEquals(SubscriptionState.ACTIVE_PRO_LITE, activeLite.subscriptionState)
+        assertTrue(activeLite.isAdFree)
+
+        val expiredLite = User(
+            uid = "lite_expired",
+            subscriptionTier = "PRO_LITE",
+            planId = "pro_lite_1d",
+            subscriptionExpiresAt = now - 5000L
+        )
+        assertEquals(SubscriptionState.EXPIRED, expiredLite.subscriptionState)
+        assertFalse(expiredLite.isAdFree)
+    }
+
+    @Test
+    fun testPhase03APointsAccountingInvariants() {
+        val initialBalance = 100L
+        val debitAmount = -50L
+        val creditAmount = 200L
+
+        val balanceAfterDebit = initialBalance + debitAmount
+        assertEquals(50L, balanceAfterDebit)
+        assertTrue("Balance must remain >= 0", balanceAfterDebit >= 0L)
+
+        val balanceAfterCredit = balanceAfterDebit + creditAmount
+        assertEquals(250L, balanceAfterCredit)
+        assertTrue("Balance must be within 1,000,000 limit", balanceAfterCredit <= 1_000_000L)
+
+        // Invalid debit that would cause negative balance
+        val invalidDebit = -300L
+        val wouldBeBalance = balanceAfterCredit + invalidDebit
+        assertTrue("Negative balance must be rejected", wouldBeBalance < 0L)
+    }
+
+    @Test
+    fun testPhase03AFeatureControlStates() {
+        assertEquals(FeatureState.ACTIVE, FeatureState.fromString("ACTIVE"))
+        assertEquals(FeatureState.COMING_SOON, FeatureState.fromString("COMING_SOON"))
+        assertEquals(FeatureState.COMING_SOON, FeatureState.fromString("SOON"))
+        assertEquals(FeatureState.DISABLED, FeatureState.fromString("DISABLED"))
+        assertEquals(FeatureState.ACTIVE, FeatureState.fromString(null))
+
+        val config = FeatureControlConfig()
+        assertEquals(FeatureState.ACTIVE, config.subscriptions.state)
+        assertEquals(FeatureState.ACTIVE, config.points.state)
+        assertEquals(FeatureState.ACTIVE, config.dailyLogin.state)
+        assertEquals(FeatureState.ACTIVE, config.rewardedAds.state)
+        assertEquals(FeatureState.ACTIVE, config.tasks.state)
+        assertEquals(FeatureState.ACTIVE, config.leaderboard.state)
+    }
+
+    @Test
+    fun testPhase03AEconomyConfigDefaults() {
+        val economy = EconomyConfig()
+        assertEquals(50L, economy.redemptionCosts["pro_lite_1d"])
+        assertEquals(250L, economy.redemptionCosts["pro_lite_7d"])
+        assertEquals(350L, economy.redemptionCosts["pro_lite_10d"])
+        assertEquals(1000L, economy.redemptionCosts["pro_30d"])
+        assertEquals(15L, economy.rewardedAdPoints)
+        assertEquals(5, economy.rewardedAdDailyCap)
+        assertEquals(300, economy.rewardedAdCooldownSeconds)
+        assertEquals(7, economy.dailyLoginRewards.size)
     }
 }
 

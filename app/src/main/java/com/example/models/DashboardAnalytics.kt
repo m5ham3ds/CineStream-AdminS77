@@ -90,10 +90,10 @@ object DashboardAnalyticsCalculator {
         val featureRestrictedOnly = users.count { !it.isAccountBanned && it.hasFeatureRestrictions }
         val totalRestricted = users.count { it.isAccountBanned || it.hasFeatureRestrictions }
 
-        val activePrem = users.count { it.subscriptionState == SubscriptionState.ACTIVE_PRO }
-        val expiredPrem = users.count { it.subscriptionState == SubscriptionState.EXPIRED_PRO }
+        val activePrem = users.count { it.subscriptionState.isAdFree }
+        val expiredPrem = users.count { it.subscriptionState == SubscriptionState.EXPIRED_PRO || it.subscriptionState == SubscriptionState.EXPIRED }
         val isPremTotal = users.count {
-            it.isPremium || it.isPro || it.subscriptionState == SubscriptionState.ACTIVE_PRO
+            it.isPremium || it.isPro || it.subscriptionState.isAdFree
         }
         val freeTotal = users.count {
             !it.isPremium && !it.isPro && it.subscriptionTier.lowercase().trim().let { tier ->

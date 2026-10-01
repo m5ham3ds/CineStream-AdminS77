@@ -8,6 +8,7 @@ import com.example.repository.AdminRepository
 import com.example.repository.ManagedExtensionRepository
 import com.example.repository.ProRequestRepository
 import com.example.repository.SupportRepository
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -266,11 +267,10 @@ class DashboardViewModel(
     fun toggleUserPremium(user: User) {
         viewModelScope.launch {
             try {
-                if (user.subscriptionState == SubscriptionState.ACTIVE_PRO) {
+                if (user.subscriptionState.isAdFree) {
                     repository.revokeSubscription(user.id)
                 } else {
-                    val defaultExpiry = System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000
-                    repository.updateSubscription(user.id, tier = "pro", expiresAt = defaultExpiry)
+                    repository.updateSubscription(user.id, tier = "PRO", durationDays = 30)
                 }
                 refresh()
             } catch (e: Exception) {
@@ -370,15 +370,12 @@ class UserDetailViewModel(
     }
 
     /**
-     * Authoritative Subscription Grant / Extension (Phase C1).
+     * Authoritative Subscription Grant / Extension (Phase 03A).
      */
     fun grantSubscription(tier: String, durationDays: Int?) {
         viewModelScope.launch {
             try {
-                val expiresAt = if (durationDays != null && durationDays > 0) {
-                    System.currentTimeMillis() + durationDays.toLong() * 24 * 60 * 60 * 1000
-                } else null
-                repository.updateSubscription(userId, tier, expiresAt)
+                repository.updateSubscription(userId = userId, tier = tier, durationDays = durationDays)
                 _statusMessage.value = "Subscription granted: ${tier.uppercase()}"
             } catch (e: Exception) {
                 _statusMessage.value = "Error granting subscription: ${e.message}"
@@ -387,7 +384,7 @@ class UserDetailViewModel(
     }
 
     /**
-     * Authoritative Subscription Revocation (Phase C1).
+     * Authoritative Subscription Revocation (Phase 03A).
      */
     fun revokeSubscription() {
         viewModelScope.launch {
@@ -402,10 +399,10 @@ class UserDetailViewModel(
 
     fun togglePremium() {
         val currentUser = user.value ?: return
-        if (currentUser.subscriptionState == SubscriptionState.ACTIVE_PRO) {
+        if (currentUser.subscriptionState.isAdFree) {
             revokeSubscription()
         } else {
-            grantSubscription("pro", 30)
+            grantSubscription("PRO", 30)
         }
     }
 
@@ -461,6 +458,33 @@ class UserDetailViewModel(
             }
         }
     }
+
+    val pointTransactions: StateFlow<List<PointTransaction>> = repository.getUserPointTransactions(userId)
+        .catch { e ->
+            AppLogger.w("UserDetailViewModel", "Error fetching point transactions: ${e.message}")
+            emit(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun adjustUserPoints(amount: Long, reason: String) {
+        viewModelScope.launch {
+            try {
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                val adminUid = currentUser?.uid ?: "admin_system"
+                val adminEmail = currentUser?.email ?: "admin@cinestream.com"
+                repository.adjustUserPoints(
+                    userId = userId,
+                    amount = amount,
+                    reason = reason,
+                    actorUid = adminUid,
+                    actorEmail = adminEmail
+                )
+                _statusMessage.value = if (amount > 0) "Points granted successfully (+$amount)" else "Points deducted successfully ($amount)"
+            } catch (e: Exception) {
+                _statusMessage.value = "Error adjusting points: ${e.message}"
+            }
+        }
+    }
 }
 
 class ConfigViewModel(private val repository: AdminRepository = AdminRepository()) : ViewModel() {
@@ -470,6 +494,42 @@ class ConfigViewModel(private val repository: AdminRepository = AdminRepository(
             emit(AppConfig())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppConfig())
+
+    val featureConfig: StateFlow<FeatureControlConfig> = repository.getFeatureControlConfig()
+        .catch { e ->
+            AppLogger.e("ConfigViewModel", "Error in feature config flow: ${e.message}", e)
+            emit(FeatureControlConfig())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FeatureControlConfig())
+
+    val economyConfig: StateFlow<EconomyConfig> = repository.getEconomyConfig()
+        .catch { e ->
+            AppLogger.e("ConfigViewModel", "Error in economy config flow: ${e.message}", e)
+            emit(EconomyConfig())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EconomyConfig())
+
+    fun updateFeature(featureKey: String, state: FeatureState, comingSoonMsg: String? = null, disabledMsg: String? = null) {
+        viewModelScope.launch {
+            try {
+                repository.updateFeatureControl(featureKey, state, comingSoonMsg, disabledMsg)
+                _statusMessage.value = "Feature $featureKey set to ${state.name}"
+            } catch (e: Exception) {
+                _statusMessage.value = "Error updating feature: ${e.message}"
+            }
+        }
+    }
+
+    fun saveEconomy(economy: EconomyConfig) {
+        viewModelScope.launch {
+            try {
+                repository.saveEconomyConfig(economy)
+                _statusMessage.value = "Economy parameters updated"
+            } catch (e: Exception) {
+                _statusMessage.value = "Error saving economy: ${e.message}"
+            }
+        }
+    }
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()

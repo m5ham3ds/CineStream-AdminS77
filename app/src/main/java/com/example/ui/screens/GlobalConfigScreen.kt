@@ -20,6 +20,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.models.EconomyConfig
+import com.example.models.FeatureControlConfig
+import com.example.models.FeatureState
 import com.example.state.AppLanguage
 import com.example.state.AppSettings
 import com.example.state.AppStrings
@@ -35,6 +38,8 @@ fun GlobalConfigScreen(
     viewModel: ConfigViewModel = viewModel()
 ) {
     val config by viewModel.config.collectAsState()
+    val featureConfig by viewModel.featureConfig.collectAsState()
+    val economyConfig by viewModel.economyConfig.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
@@ -491,6 +496,216 @@ fun GlobalConfigScreen(
                             unfocusedContainerColor = DarkSurfaceVariant
                         )
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Section 5: Feature Control Center Card (/config/features) - Phase 03A
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(14.dp),
+                border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ToggleOn, contentDescription = null, tint = MetricPurple)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "مركز التحكم بالميزات والنظام" else "Feature Control Center",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "مفاتيح التعطيل والوضع القادم (/config/features)" else "Feature Flags & Kill Switches (/config/features)",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    val featuresList = listOf(
+                        Triple("subscriptions", if (currentLang == AppLanguage.ARABIC) "الاشتراكات (Subscriptions)" else "Subscriptions", featureConfig.subscriptions),
+                        Triple("points", if (currentLang == AppLanguage.ARABIC) "نظام النقاط (Points System)" else "Points Economy", featureConfig.points),
+                        Triple("dailyLogin", if (currentLang == AppLanguage.ARABIC) "تسجيل الدخول اليومي (Daily Login)" else "Daily Login Rewards", featureConfig.dailyLogin),
+                        Triple("rewardedAds", if (currentLang == AppLanguage.ARABIC) "إعلانات المكافآت (Rewarded Ads)" else "Rewarded Ads", featureConfig.rewardedAds),
+                        Triple("tasks", if (currentLang == AppLanguage.ARABIC) "مهام المكافآت (Reward Tasks)" else "Reward Tasks", featureConfig.tasks),
+                        Triple("leaderboard", if (currentLang == AppLanguage.ARABIC) "قائمة المتصدرين (Leaderboard)" else "Leaderboard", featureConfig.leaderboard)
+                    )
+
+                    featuresList.forEach { (key, label, itemConfig) ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(DarkSurfaceVariant, RoundedCornerShape(10.dp))
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                                val badgeColor = when (itemConfig.state) {
+                                    FeatureState.ACTIVE -> MetricGreen
+                                    FeatureState.COMING_SOON -> MetricBlue
+                                    FeatureState.DISABLED -> MetricRed
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(badgeColor.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                        .border(1.dp, badgeColor, RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = itemConfig.state.name,
+                                        color = badgeColor,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                FilterChip(
+                                    selected = itemConfig.state == FeatureState.ACTIVE,
+                                    onClick = { viewModel.updateFeature(key, FeatureState.ACTIVE) },
+                                    label = { Text("ACTIVE", fontSize = 10.5.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MetricGreen,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                                FilterChip(
+                                    selected = itemConfig.state == FeatureState.COMING_SOON,
+                                    onClick = { viewModel.updateFeature(key, FeatureState.COMING_SOON) },
+                                    label = { Text("COMING SOON", fontSize = 10.5.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MetricBlue,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                                FilterChip(
+                                    selected = itemConfig.state == FeatureState.DISABLED,
+                                    onClick = { viewModel.updateFeature(key, FeatureState.DISABLED) },
+                                    label = { Text("DISABLED", fontSize = 10.5.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MetricRed,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Section 6: Points Economy & Redemption Pricing Card (/config/economy) - Phase 03A
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(14.dp),
+                border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkCardBorder, DarkCardBorder))),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = MetricOrange)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "تسعير استبدال الاشتراكات بالنقاط" else "Subscription Points Redemption",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = if (currentLang == AppLanguage.ARABIC) "تكلفة النقاط لكل باقة اشتراك (/config/economy)" else "Points required per plan (/config/economy)",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    val costs = economyConfig.redemptionCosts
+                    val plans = listOf(
+                        "pro_lite_1d" to "Pro Lite (1 Day / 24h)",
+                        "pro_lite_7d" to "Pro Lite (7 Days)",
+                        "pro_lite_10d" to "Pro Lite (10 Days)",
+                        "pro_30d" to "Pro Standard (30 Days)"
+                    )
+
+                    plans.forEach { (planSku, label) ->
+                        var costText by remember(costs[planSku]) { mutableStateOf((costs[planSku] ?: 100L).toString()) }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(DarkSurfaceVariant, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(label, color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                                Text(planSku, color = TextSecondary, fontSize = 10.5.sp)
+                            }
+                            OutlinedTextField(
+                                value = costText,
+                                onValueChange = {
+                                    val filtered = it.filter { ch -> ch.isDigit() }
+                                    costText = filtered
+                                    val newCost = filtered.toLongOrNull()
+                                    if (newCost != null) {
+                                        val updatedMap = economyConfig.redemptionCosts.toMutableMap()
+                                        updatedMap[planSku] = newCost
+                                        viewModel.saveEconomy(economyConfig.copy(redemptionCosts = updatedMap))
+                                    }
+                                },
+                                label = { Text("PTS", fontSize = 10.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.width(100.dp)
+                            )
+                        }
+                    }
+
+                    // Economy Parameters Summary
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(if (currentLang == AppLanguage.ARABIC) "نقاط الإعلان" else "Pts / Ad", color = TextSecondary, fontSize = 11.sp)
+                            Text("${economyConfig.rewardedAdPoints} PTS", color = MetricOrange, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column {
+                            Text(if (currentLang == AppLanguage.ARABIC) "حد الإعلانات/يوم" else "Max Ads / Day", color = TextSecondary, fontSize = 11.sp)
+                            Text("${economyConfig.rewardedAdDailyCap}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column {
+                            Text(if (currentLang == AppLanguage.ARABIC) "فترة التهدئة" else "Cooldown", color = TextSecondary, fontSize = 11.sp)
+                            Text("${economyConfig.rewardedAdCooldownSeconds}s", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 
