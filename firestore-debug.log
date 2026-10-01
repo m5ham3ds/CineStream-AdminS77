@@ -1,4 +1,4 @@
-Oct 01, 2026 12:51:32 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
+Oct 01, 2026 2:04:21 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketServer start
 INFO: Started WebSocket server on ws://127.0.0.1:9150
 
 API endpoint: http://127.0.0.1:8085
@@ -16,21 +16,21 @@ If you are running a Firestore in Datastore Mode project, run:
 Note: Support for Datastore Mode is in preview. If you encounter any bugs please file at https://github.com/firebase/firebase-tools/issues.
 Dev App Server is now running.
 
-Oct 01, 2026 12:51:33 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Oct 01, 2026 2:04:22 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected non-HTTP/2 connection.
-Oct 01, 2026 12:51:33 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Oct 01, 2026 2:04:22 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Oct 01, 2026 2:04:24 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected non-HTTP/2 connection.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Oct 01, 2026 2:04:24 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:36 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Oct 01, 2026 2:04:25 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
@@ -64,7 +64,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:37 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:26 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L190, false for 'create' @ L203, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L190, false for 'update' @ L203, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L190, false for 'update' @ L203, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -139,7 +139,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:38 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:27 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L198, false for 'create' @ L203, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L198, false for 'update' @ L203, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L198, false for 'update' @ L203, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -214,7 +214,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:38 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:27 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L211, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L211, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L211, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -289,7 +289,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:38 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:27 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L219, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L219, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L219, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -364,7 +364,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:39 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:27 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L151, Property email is undefined on object. for 'create' @ L165, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L151, Property email is undefined on object. for 'update' @ L165, false for 'update' @ L371, Property email is undefined on object. for 'create' @ L151, Property email is undefined on object. for 'create' @ L165, false for 'create' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -445,7 +445,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:39 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:28 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'create' @ L158, Property email is undefined on object. for 'create' @ L165, false for 'create' @ L371, Property email is undefined on object. for 'update' @ L158, Property email is undefined on object. for 'update' @ L165, false for 'update' @ L371, Property email is undefined on object. for 'create' @ L158, Property email is undefined on object. for 'create' @ L165, false for 'create' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -514,7 +514,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:39 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:28 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -583,7 +583,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:39 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:28 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -652,7 +652,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:40 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:28 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -721,7 +721,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:40 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:29 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -790,7 +790,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:40 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:29 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
@@ -859,7 +859,7 @@ Multiple projectIds are not recommended in single project mode. Requested projec
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
 Multiple projectIds are not recommended in single project mode. Requested project ID cinestream-admin-test, but the emulator is configured for demo-no-project. To opt-out of single project mode add/set the '"singleProjectMode": false' property in the firebase.json emulators config.
-Oct 01, 2026 12:51:40 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
+Oct 01, 2026 2:04:29 AM com.google.cloud.datastore.emulator.impl.util.WrappedStreamObserver onError
 WARNING: Operation failed: 
 Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371, Property email is undefined on object. for 'update' @ L140, false for 'update' @ L371
 com.google.cloud.datastore.core.exception.DatastoreException: 
