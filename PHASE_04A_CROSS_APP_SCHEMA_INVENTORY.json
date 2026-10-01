@@ -1,0 +1,416 @@
+{
+  "auditMetadata": {
+    "phase": "PHASE 04A",
+    "phaseName": "CROSS-APP SCHEMA INVENTORY & CANONICAL CONTRACT AUDIT",
+    "project": "CineStream Ecosystem",
+    "date": "2026-10-01",
+    "status": "COMPLETED",
+    "verdict": "PARTIALLY_ALIGNED_WITH_VERIFIED_ADMIN_AND_RULES",
+    "auditorRole": "Senior Forensic Systems Architect",
+    "zeroModificationAttestation": true
+  },
+  "projectDiscovery": {
+    "adminApp": {
+      "projectRoot": "/app/applet",
+      "applicationType": "Android Management Plane Application",
+      "package": "com.example",
+      "applicationId": "com.aistudio.cinestreamadmin.cgmmpx",
+      "buildSystem": "Gradle (Kotlin DSL, AGP 8.8.0, Kotlin 2.1.0)",
+      "language": "Kotlin (100%)",
+      "uiFramework": "Jetpack Compose (Material 3)",
+      "sourceRoot": "/app/applet/app/src/main/java",
+      "mountStatus": "LOCAL_VERIFIED"
+    },
+    "usersApp": {
+      "projectRoot": "EXTERNAL_REMOTE_REPOSITORY",
+      "applicationType": "Android Client Consumer Streaming Application",
+      "package": "com.cinestream.app",
+      "applicationId": "com.cinestream.app",
+      "buildSystem": "Gradle",
+      "language": "Kotlin",
+      "uiFramework": "Jetpack Compose",
+      "sourceRoot": "EXTERNAL",
+      "mountStatus": "EXTERNAL_UNVERIFIED_SOURCE_EVIDENCE_FROM_CONTRACTS_AND_RULES"
+    },
+    "trustedBackend": {
+      "projectRoot": "EXTERNAL_CLOUDFLARE_WORKER",
+      "applicationType": "Trusted Edge Backend & Settlement Engine",
+      "technology": "Cloudflare Workers / TypeScript / Firebase Admin",
+      "sourceRoot": "EXTERNAL",
+      "mountStatus": "EXTERNAL_UNVERIFIED_SOURCE_EVIDENCE_FROM_ARCHITECTURE_SPECS"
+    },
+    "firebaseControlPlane": {
+      "projectRoot": "/app/applet",
+      "rulesFile": "/firestore.rules",
+      "rulesVersion": "2",
+      "rulesLineCount": 376,
+      "mountStatus": "LOCAL_VERIFIED"
+    }
+  },
+  "collectionInventory": [
+    {
+      "path": "/admins/{adminUid}",
+      "purpose": "Authoritative administrative access registry",
+      "operations": {
+        "adminApp": ["READ", "CREATE", "UPDATE", "DELETE"],
+        "usersApp": ["NONE"],
+        "backend": ["READ"],
+        "rules": {
+          "read": "isAuthenticated() && (request.auth.uid == adminUid || isAdmin())",
+          "write": "isAdmin() || (isAuthenticated() && request.auth.uid == adminUid && request.auth.token.email matches owner email)"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/users/{userId}",
+      "purpose": "User profiles, subscription entitlement, and cached point balances",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "QUERY", "CREATE", "UPDATE", "DELETE", "TRANSACTION"],
+        "usersApp": ["READ", "LISTEN", "CREATE (safe defaults)", "UPDATE (non-sensitive profile fields only)"],
+        "backend": ["READ", "UPDATE", "TRANSACTION"],
+        "rules": {
+          "read": "isAdmin() || isOwner(userId)",
+          "create": "isAdmin() || hasSafeUserCreationDefaults(userId)",
+          "update": "isAdmin() || (isOwner(userId) && !modifyingSensitiveUserFields())",
+          "delete": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/users/{userId}/point_transactions/{txId}",
+      "purpose": "Immutable points accounting ledger",
+      "operations": {
+        "adminApp": ["LISTEN", "TRANSACTION_CREATE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["CREATE", "TRANSACTION"],
+        "rules": {
+          "read": "isAdmin() || isOwner(userId)",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/users/{userId}/task_claims/{taskId}",
+      "purpose": "Anti-replay task redemption records",
+      "operations": {
+        "adminApp": ["NONE"],
+        "usersApp": ["READ"],
+        "backend": ["CREATE", "READ", "TRANSACTION"],
+        "rules": {
+          "read": "isAdmin() || isOwner(userId)",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "PARTIAL_CODE_OMISSION"
+    },
+    {
+      "path": "/config/app",
+      "purpose": "Application updates, maintenance mode, OTA configuration",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "UPDATE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["READ"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/config/global",
+      "purpose": "Legacy configuration fallback document",
+      "operations": {
+        "adminApp": ["READ (fallback)"],
+        "usersApp": ["NONE"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "DENIED (caught by /config/{document=**})",
+          "write": "DENIED"
+        }
+      },
+      "status": "CONFLICT_LEGACY_LEAK"
+    },
+    {
+      "path": "/config/search_order",
+      "purpose": "Search provider priority ordering per category",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "UPDATE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/config/features",
+      "purpose": "System feature control switches (subscriptions, points, tasks, etc.)",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "UPDATE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["READ"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/config/economy",
+      "purpose": "Economy pricing parameters, daily login rewards, ad reward caps",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "UPDATE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["READ"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/reward_tasks/{taskId}",
+      "purpose": "Reward tasks catalog",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "CREATE", "UPDATE", "DELETE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["READ"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/leaderboard/weekly_current",
+      "purpose": "Active weekly ranking cache",
+      "operations": {
+        "adminApp": ["NONE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["CREATE", "UPDATE", "TRANSACTION"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "UNVERIFIED_EXTERNAL_BACKEND"
+    },
+    {
+      "path": "/leaderboard_history/{cycleId}",
+      "purpose": "Archived weekly leaderboard snapshots",
+      "operations": {
+        "adminApp": ["NONE"],
+        "usersApp": ["READ"],
+        "backend": ["CREATE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "UNVERIFIED_EXTERNAL_BACKEND"
+    },
+    {
+      "path": "/managed_extensions/{extensionId}",
+      "purpose": "Canonical scraper catalog (Pure metadata, no executable code)",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "CREATE", "UPDATE", "DELETE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/extensions/{extensionId}",
+      "purpose": "Legacy extensions catalog (dual-written for backward compatibility)",
+      "operations": {
+        "adminApp": ["READ", "LISTEN", "CREATE", "UPDATE", "DELETE"],
+        "usersApp": ["READ"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/app_updates/{updateId}",
+      "purpose": "OTA update package releases",
+      "operations": {
+        "adminApp": ["LISTEN", "CREATE", "UPDATE", "DELETE"],
+        "usersApp": ["READ"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/notifications/{notificationId}",
+      "purpose": "System announcements and FCM trigger records",
+      "operations": {
+        "adminApp": ["LISTEN", "QUERY", "CREATE", "DELETE"],
+        "usersApp": ["READ", "LISTEN"],
+        "backend": ["LISTEN (FCM Dispatch Cloud Function)"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/auditLogs/{logId}",
+      "purpose": "Administrative actions audit trail",
+      "operations": {
+        "adminApp": ["READ", "QUERY", "LISTEN", "CREATE (append)"],
+        "usersApp": ["NONE"],
+        "backend": ["CREATE (append)"],
+        "rules": {
+          "read": "isAdmin()",
+          "write": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/reports/{reportId}",
+      "purpose": "User playback and content problem tickets",
+      "operations": {
+        "adminApp": ["READ", "QUERY", "LISTEN", "UPDATE (resolve)", "DELETE"],
+        "usersApp": ["READ (own)", "CREATE (PENDING)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid)",
+          "create": "isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.status in ['PENDING', 'pending'])",
+          "update": "isAdmin()",
+          "delete": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/support_conversations/{conversationId}",
+      "purpose": "Helpdesk support threads",
+      "operations": {
+        "adminApp": ["LISTEN", "QUERY", "UPDATE", "DELETE"],
+        "usersApp": ["READ (own)", "CREATE (own)", "UPDATE (own)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid)",
+          "create": "isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid)",
+          "update": "isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid)",
+          "delete": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/support_conversations/{conversationId}/messages/{messageId}",
+      "purpose": "Messages in helpdesk support thread",
+      "operations": {
+        "adminApp": ["LISTEN", "CREATE (admin reply)"],
+        "usersApp": ["READ (thread owner)", "CREATE (user reply)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAdmin() || (isAuthenticated() && conversation.data.userId == request.auth.uid)",
+          "create": "isAdmin() || (isAuthenticated() && conversation.data.userId == request.auth.uid && request.resource.data.senderId == request.auth.uid && request.resource.data.senderRole == 'user')",
+          "update": "isAdmin()",
+          "delete": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/pro_requests/{requestId}",
+      "purpose": "Manual subscription payment proof intake queue",
+      "operations": {
+        "adminApp": ["READ", "QUERY", "LISTEN", "TRANSACTION (approve/reject)", "DELETE"],
+        "usersApp": ["READ (own)", "CREATE (PENDING)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid)",
+          "create": "isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.status in ['PENDING', 'pending'])",
+          "update": "isAdmin()",
+          "delete": "isAdmin()"
+        }
+      },
+      "status": "ALIGNED"
+    },
+    {
+      "path": "/conversations/{conversationId}",
+      "purpose": "Social user-to-user private chat (User plane)",
+      "operations": {
+        "adminApp": ["NONE (constant in contract)"],
+        "usersApp": ["READ", "CREATE", "UPDATE", "DELETE (participant)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated() && request.auth.uid in resource.data.participants",
+          "create": "isAuthenticated() && request.auth.uid in request.resource.data.participants",
+          "update": "isAuthenticated() && request.auth.uid in resource.data.participants",
+          "delete": "isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.ownerId == request.auth.uid)"
+        }
+      },
+      "status": "ALIGNED_USER_PLANE"
+    },
+    {
+      "path": "/stories/{storyId}",
+      "purpose": "User short video clips and stories (User plane)",
+      "operations": {
+        "adminApp": ["NONE (constant in contract)"],
+        "usersApp": ["READ", "CREATE (own)", "UPDATE (own)", "DELETE (own)"],
+        "backend": ["NONE"],
+        "rules": {
+          "read": "isAuthenticated()",
+          "create": "isAuthenticated() && request.resource.data.userId == request.auth.uid",
+          "update": "isAuthenticated() && resource.data.userId == request.auth.uid",
+          "delete": "isAuthenticated() && resource.data.userId == request.auth.uid"
+        }
+      },
+      "status": "ALIGNED_USER_PLANE"
+    }
+  ],
+  "economicContractValidation": {
+    "absoluteInvariantRemoveAdsOnly": {
+      "status": "PASS",
+      "evidence": "Models.kt lines 12-14, 241-249. SubscriptionState.isAdFree returns true for ACTIVE_PRO and ACTIVE_PRO_LITE. No coupling exists to allowedQuality or downloadLimit."
+    },
+    "qualityGatingForbidden": {
+      "status": "PASS",
+      "evidence": "allowedQuality and downloadLimit are classified as independent technical permissions on /users/{uid} and protected from user modification in modifyingSensitiveUserFields(). Admin updateSubscription() strictly avoids touching quality."
+    },
+    "dualWriteReconciliation": {
+      "status": "PASS",
+      "canonicalFields": [
+        "subscriptionTier", "planId", "durationDays", "subscriptionStatus",
+        "subscriptionSource", "subscriptionReferenceId", "subscriptionStartedAt", "subscriptionExpiresAt"
+      ],
+      "compatibilityMirrors": [
+        "isPremium", "isPro", "plan", "proPlan", "proExpiresAt"
+      ]
+    },
+    "pointsLedgerImmutability": {
+      "status": "PASS",
+      "evidence": "firestore.rules lines 148-152 restrict writes to /users/{uid}/point_transactions/{txId} strictly to isAdmin(). Wildcard subcollections write excludes point_transactions."
+    },
+    "taskClaimsProtection": {
+      "status": "PASS",
+      "evidence": "firestore.rules lines 155-159 restrict writes to /users/{uid}/task_claims/{taskId} strictly to isAdmin()."
+    }
+  }
+}
