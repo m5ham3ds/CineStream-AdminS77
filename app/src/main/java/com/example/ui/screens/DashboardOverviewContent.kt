@@ -61,6 +61,7 @@ fun DashboardOverviewContent(
     onNavigateToProRequests: () -> Unit,
     onNavigateToExtensions: () -> Unit,
     onNavigateToAuditLogs: () -> Unit,
+    onNavigateToEconomy: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val rotation by rememberInfiniteTransition(label = "refresh_rotation").animateFloat(
@@ -160,6 +161,56 @@ fun DashboardOverviewContent(
                     color = MetricGreen,
                     onClick = onNavigateToAuditLogs
                 )
+                QuickNavChip(
+                    label = AppStrings.economy(currentLang),
+                    icon = Icons.Default.MonetizationOn,
+                    color = MetricOrange,
+                    onClick = onNavigateToEconomy
+                )
+            }
+        }
+
+        // --- ECONOMY & POINTS CONTROL PLANE CARD (Phase 04B Deliverable) ---
+        item {
+            OperationalCard(
+                title = AppStrings.kpiEconomy(currentLang),
+                icon = Icons.Default.MonetizationOn,
+                accentColor = MetricOrange,
+                actionLabel = AppStrings.manage(currentLang),
+                onAction = onNavigateToEconomy
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (currentLang == AppLanguage.ARABIC)
+                            "التحكم المركزي في ميزات الاقتصاد، أسعار الاشتراكات بالنقاط، المهام، ورصيد المستخدمين."
+                            else "Authoritative control plane for points economy, subscription pricing, tasks catalog & user wallets.",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        KpiTile(
+                            label = if (currentLang == AppLanguage.ARABIC) "ميزات الاقتصاد" else "Economy Features",
+                            value = "6 Configs",
+                            accentColor = MetricGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        KpiTile(
+                            label = if (currentLang == AppLanguage.ARABIC) "باقات النقاط" else "Points SKUs",
+                            value = "4 Tiers",
+                            accentColor = MetricOrange,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    CineStreamOutlinedLoadingButton(
+                        text = if (currentLang == AppLanguage.ARABIC) "فتح وحدة إدارة الاقتصاد والنقاط" else "Open Economy Console",
+                        leadingIcon = Icons.Default.AccountBalanceWallet,
+                        onClick = onNavigateToEconomy,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
 

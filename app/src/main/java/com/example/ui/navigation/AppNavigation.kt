@@ -61,6 +61,7 @@ sealed class Screen(val route: String, val icon: ImageVector) {
     }
     object ProRequests : Screen("pro_requests", Icons.Default.WorkspacePremium)
     object Diagnostics : Screen("diagnostics", Icons.Default.BugReport)
+    object Economy : Screen("economy_console", Icons.Default.MonetizationOn)
     object UserDetail : Screen("user_detail/{userId}", Icons.Default.Person) {
         fun createRoute(userId: String) = "user_detail/$userId"
     }
@@ -82,6 +83,7 @@ sealed class Screen(val route: String, val icon: ImageVector) {
         SupportChat -> AppStrings.supportChat(lang)
         ProRequests -> AppStrings.proRequests(lang)
         Diagnostics -> AppStrings.diagnostics(lang)
+        Economy -> AppStrings.economy(lang)
         UserDetail -> AppStrings.userDetailTitle(lang)
     }
 
@@ -102,6 +104,7 @@ sealed class Screen(val route: String, val icon: ImageVector) {
         SupportChat -> AppStrings.supportChatSubtitle(lang)
         ProRequests -> AppStrings.proRequestsSubtitle(lang)
         Diagnostics -> AppStrings.diagnosticsSubtitle(lang)
+        Economy -> AppStrings.economySubtitle(lang)
         UserDetail -> AppStrings.userDetailSubtitle(lang)
     }
 }
@@ -144,6 +147,7 @@ fun AppNavigation() {
         Screen.SupportChat.route -> Screen.SupportChat
         Screen.ProRequests.route -> Screen.ProRequests
         Screen.Diagnostics.route -> Screen.Diagnostics
+        Screen.Economy.route -> Screen.Economy
         Screen.UserDetail.route -> Screen.UserDetail
         else -> null
     }
@@ -322,6 +326,18 @@ fun AppNavigation() {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        DrawerItem(
+                            icon = Icons.Default.MonetizationOn,
+                            title = AppStrings.economy(currentLang),
+                            selected = currentRoute == Screen.Economy.route,
+                            onClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                navController.navigate(Screen.Economy.route)
                             }
                         )
 
@@ -504,8 +520,12 @@ fun AppNavigation() {
                             onNavigateToSupport = { navController.navigate(Screen.SupportInbox.route) },
                             onNavigateToProRequests = { navController.navigate(Screen.ProRequests.route) },
                             onNavigateToExtensions = { navController.navigate(Screen.ManagedExtensions.route) },
-                            onNavigateToAuditLogs = { navController.navigate(Screen.AuditLogs.route) }
+                            onNavigateToAuditLogs = { navController.navigate(Screen.AuditLogs.route) },
+                            onNavigateToEconomy = { navController.navigate(Screen.Economy.route) }
                         )
+                    }
+                    composable(Screen.Economy.route) {
+                        EconomyConsoleScreen()
                     }
                     composable(Screen.AppUpdates.route) {
                         AppUpdatesScreen()

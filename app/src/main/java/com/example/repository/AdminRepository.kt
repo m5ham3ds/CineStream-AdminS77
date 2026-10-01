@@ -882,6 +882,46 @@ class AdminRepository {
     }
 
     /**
+     * Realtime listener for Weekly Leaderboard (/leaderboard/weekly_current).
+     * Strictly READ-ONLY in Admin App (Phase 04B).
+     */
+    fun getWeeklyLeaderboard(): Flow<WeeklyLeaderboard> = callbackFlow {
+        val docRef = firestore.collection(FirebaseCollections.LEADERBOARD)
+            .document(com.example.contract.FirebaseLeaderboardDocs.WEEKLY_CURRENT)
+        val listener = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                AppLogger.w("AdminRepository", "Leaderboard listener notice: ${error.message}")
+                trySend(WeeklyLeaderboard())
+                return@addSnapshotListener
+            }
+            if (snapshot != null && snapshot.exists()) {
+                try {
+                    val cycleId = snapshot.getString("cycleId") ?: "WEEKLY_CURRENT"
+                    val updatedAt = extractTimestampMillis(snapshot, "updatedAt", 0L)
+                    val rawRankings = snapshot.get("rankings") as? List<*>
+                    val entries = rawRankings?.mapIndexedNotNull { idx, item ->
+                        if (item is Map<*, *>) {
+                            val rank = (item["rank"] as? Number)?.toInt() ?: (idx + 1)
+                            val uid = item["userId"]?.toString() ?: ""
+                            val name = item["displayName"]?.toString() ?: item["username"]?.toString() ?: "User #$rank"
+                            val pts = (item["points"] as? Number)?.toLong() ?: (item["weeklyEarnedPoints"] as? Number)?.toLong() ?: 0L
+                            val photo = item["photoUrl"]?.toString() ?: item["avatarUrl"]?.toString() ?: ""
+                            LeaderboardEntry(rank, uid, name, pts, photo)
+                        } else null
+                    } ?: emptyList()
+                    trySend(WeeklyLeaderboard(cycleId, updatedAt, entries))
+                } catch (e: Exception) {
+                    AppLogger.w("AdminRepository", "Failed to deserialize leaderboard: ${e.message}")
+                    trySend(WeeklyLeaderboard())
+                }
+            } else {
+                trySend(WeeklyLeaderboard())
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    /**
      * Selective Feature Permission Toggle (Phase C1).
      * Updates individual feature access without conflating with global account ban.
      */

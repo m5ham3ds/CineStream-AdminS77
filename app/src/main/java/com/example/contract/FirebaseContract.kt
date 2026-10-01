@@ -134,6 +134,22 @@ object FirebaseSubcollections {
      * Status: CANONICAL ACTIVE (Immutable Ledger)
      */
     const val POINT_TRANSACTIONS = "point_transactions"
+
+    /**
+     * Anti-replay task claim records (Phase 03A).
+     * Path: /users/{uid}/task_claims/{taskId}
+     * Status: CANONICAL ACTIVE
+     */
+    const val TASK_CLAIMS = "task_claims"
+}
+
+object FirebaseLeaderboardDocs {
+    /**
+     * Current active weekly ranking document.
+     * Document path: /leaderboard/weekly_current
+     * Status: CANONICAL ACTIVE
+     */
+    const val WEEKLY_CURRENT = "weekly_current"
 }
 
 object FirebaseConfigDocs {

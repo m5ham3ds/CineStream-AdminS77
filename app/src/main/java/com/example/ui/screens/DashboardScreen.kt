@@ -63,6 +63,7 @@ fun DashboardScreen(
     onNavigateToProRequests: () -> Unit = {},
     onNavigateToExtensions: () -> Unit = {},
     onNavigateToAuditLogs: () -> Unit = {},
+    onNavigateToEconomy: () -> Unit = {},
     viewModel: DashboardViewModel = viewModel()
 ) {
     val currentLang by AppSettings.language.collectAsState()
@@ -211,6 +212,7 @@ fun DashboardScreen(
                     onNavigateToProRequests = onNavigateToProRequests,
                     onNavigateToExtensions = onNavigateToExtensions,
                     onNavigateToAuditLogs = onNavigateToAuditLogs,
+                    onNavigateToEconomy = onNavigateToEconomy,
                     modifier = Modifier.weight(1f)
                 )
             } else {

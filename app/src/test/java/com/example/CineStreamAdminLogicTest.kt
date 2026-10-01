@@ -2609,6 +2609,111 @@ class CineStreamAdminLogicTest {
         assertTrue(pro30d.isAdFree)
         assertFalse(free.isAdFree)
     }
+
+    // =========================================================================
+    // PHASE 04B — ADMIN ECONOMY MANAGEMENT CONSOLE UNIT TESTS
+    // =========================================================================
+
+    @Test
+    fun testPhase04BEconomyScreenRouteAndMetadata() {
+        val route = com.example.ui.navigation.Screen.Economy.route
+        assertEquals("economy_console", route)
+
+        val titleAr = com.example.ui.navigation.Screen.Economy.getTitle(AppLanguage.ARABIC)
+        val titleEn = com.example.ui.navigation.Screen.Economy.getTitle(AppLanguage.ENGLISH)
+        assertTrue(titleAr.isNotBlank())
+        assertTrue(titleEn.isNotBlank())
+
+        val subAr = com.example.ui.navigation.Screen.Economy.getSubtitle(AppLanguage.ARABIC)
+        val subEn = com.example.ui.navigation.Screen.Economy.getSubtitle(AppLanguage.ENGLISH)
+        assertTrue(subAr.isNotBlank())
+        assertTrue(subEn.isNotBlank())
+    }
+
+    @Test
+    fun testPhase04BEconomyConfigValidation() {
+        // Valid canonical costs
+        val validCosts = mapOf(
+            "pro_lite_1d" to 50L,
+            "pro_lite_7d" to 250L,
+            "pro_lite_10d" to 350L,
+            "pro_30d" to 1000L
+        )
+        val costErrors = EconomyConfig.validateRedemptionCosts(validCosts)
+        assertTrue(costErrors.isEmpty())
+
+        // Invalid: missing SKU
+        val incompleteCosts = mapOf(
+            "pro_lite_1d" to 50L,
+            "pro_lite_7d" to 250L
+        )
+        val incompleteErrors = EconomyConfig.validateRedemptionCosts(incompleteCosts)
+        assertTrue(incompleteErrors.isNotEmpty())
+
+        // Invalid: non-canonical SKU
+        val unknownSkuCosts = validCosts + ("vip_yearly" to 5000L)
+        val unknownErrors = EconomyConfig.validateRedemptionCosts(unknownSkuCosts)
+        assertTrue(unknownErrors.isNotEmpty())
+
+        // Valid 7-day daily login ladder
+        val validLadder = listOf(10L, 15L, 20L, 25L, 30L, 40L, 50L)
+        val ladderErrors = EconomyConfig.validateDailyLoginRewards(validLadder)
+        assertTrue(ladderErrors.isEmpty())
+
+        // Invalid: less than 7 days
+        val shortLadder = listOf(10L, 20L, 30L)
+        val shortErrors = EconomyConfig.validateDailyLoginRewards(shortLadder)
+        assertTrue(shortErrors.isNotEmpty())
+
+        // Rewarded Ads validation
+        val adErrors = EconomyConfig.validateRewardedAds(points = 15L, dailyCap = 5, cooldownSeconds = 300)
+        assertTrue(adErrors.isEmpty())
+
+        val negativeAdErrors = EconomyConfig.validateRewardedAds(points = -5L, dailyCap = 5, cooldownSeconds = 300)
+        assertTrue(negativeAdErrors.isNotEmpty())
+    }
+
+    @Test
+    fun testPhase04BRewardTaskValidation() {
+        val validTask = com.example.models.RewardTask(
+            taskId = "task_survey_01",
+            title = "Complete App Survey",
+            rewardPoints = 50L,
+            taskType = com.example.models.TaskTypes.SURVEY
+        )
+        val errors = validTask.validate()
+        assertTrue(errors.isEmpty())
+
+        // Duplicate Task ID
+        val duplicateErrors = validTask.validate(existingTaskIds = setOf("task_survey_01"), isNew = true)
+        assertTrue(duplicateErrors.isNotEmpty())
+
+        // Negative points
+        val negativeTask = validTask.copy(rewardPoints = -10L)
+        val negativeErrors = negativeTask.validate()
+        assertTrue(negativeErrors.isNotEmpty())
+
+        // Unknown task type
+        val unknownTypeTask = validTask.copy(taskType = "INVALID_TYPE")
+        val typeErrors = unknownTypeTask.validate()
+        assertTrue(typeErrors.isNotEmpty())
+    }
+
+    @Test
+    fun testPhase04BFeatureControlStates() {
+        assertEquals(FeatureState.ACTIVE, FeatureState.fromString("ACTIVE"))
+        assertEquals(FeatureState.COMING_SOON, FeatureState.fromString("COMING_SOON"))
+        assertEquals(FeatureState.DISABLED, FeatureState.fromString("DISABLED"))
+        assertEquals(FeatureState.ACTIVE, FeatureState.fromString("UNKNOWN_STATE"))
+
+        val config = FeatureControlConfig()
+        assertEquals(FeatureState.ACTIVE, config.subscriptions.state)
+        assertEquals(FeatureState.ACTIVE, config.points.state)
+        assertEquals(FeatureState.ACTIVE, config.dailyLogin.state)
+        assertEquals(FeatureState.ACTIVE, config.rewardedAds.state)
+        assertEquals(FeatureState.ACTIVE, config.tasks.state)
+        assertEquals(FeatureState.ACTIVE, config.leaderboard.state)
+    }
 }
 
 

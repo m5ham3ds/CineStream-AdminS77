@@ -21,6 +21,7 @@ object AppStrings {
     fun diagnostics(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "فحص وتشخيص" else "Diagnostics"
     fun auditLogs(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "سجلات الأمان" else "Audit Logs"
     fun reports(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "بلاغات المستخدمين" else "User Reports"
+    fun economy(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إدارة الاقتصاد" else "Economy Console"
     fun profile(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "الملف الشخصي" else "Profile"
     fun logout(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "تسجيل الخروج" else "Sign Out"
 
@@ -31,6 +32,7 @@ object AppStrings {
     fun notificationsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إرسال إشعارات جماعية ومخصصة" else "Push Broadcasts"
     fun extensionsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إضافات ومصادر الكشط" else "APK Scrapers & Modules"
     fun reportsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "متابعة مشاكل البث وبلاغات الأعطال" else "Review client issues & bugs"
+    fun economySubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "ميزات الاقتصاد، أسعار الاشتراكات، والمهام" else "Feature switches, pricing & rewards"
     fun settingsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "تفضيلات ومظهر التطبيق" else "Appearance & Preferences"
     fun profileSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "بيانات حساب المشرف" else "Admin account settings"
     fun auditLogsSubtitle(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "سجلات الأمان والأحداث" else "Security & Audit events"
@@ -447,6 +449,7 @@ object AppStrings {
     fun kpiExtensions(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "المكشطات والإضافات" else "Managed Extensions"
     fun kpiFeatureRestrictions(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "تفصيل قيود الميزات" else "Feature Restrictions"
     fun kpiRecentActivity(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "أحدث الأنشطة الإدارية" else "Recent Administrative Activity"
+    fun kpiEconomy(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "الاقتصاد والمكافآت" else "Economy & Rewards"
     fun labelTotalUsers(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "إجمالي المستخدمين" else "Total Users"
     fun labelActiveUsers(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "نشط (آخر 30 يوم)" else "Active (30d)"
     fun labelInactiveUsers(lang: AppLanguage) = if (lang == AppLanguage.ARABIC) "غير نشط (>30 يوم)" else "Inactive (>30d)"

@@ -72,7 +72,30 @@ data class RewardTask(
     val expiresAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    fun validate(existingTaskIds: Set<String> = emptySet(), isNew: Boolean = false): List<String> {
+        val errors = mutableListOf<String>()
+        val cleanId = taskId.trim()
+        if (cleanId.isBlank()) {
+            errors.add("Task ID is required")
+        } else if (!cleanId.matches(Regex("^[a-zA-Z0-9_-]{2,64}$"))) {
+            errors.add("Task ID must be 2-64 alphanumeric characters, underscores, or hyphens")
+        } else if (isNew && existingTaskIds.contains(cleanId)) {
+            errors.add("Task ID '$cleanId' already exists. Must be unique.")
+        }
+
+        if (title.trim().isBlank()) {
+            errors.add("Task title is required")
+        }
+        if (rewardPoints < 0L) {
+            errors.add("Reward points cannot be negative ($rewardPoints)")
+        }
+        if (!TaskTypes.ALL.contains(taskType.trim().uppercase())) {
+            errors.add("Unknown task type '$taskType'. Allowed: ${TaskTypes.ALL}")
+        }
+        return errors
+    }
+}
 
 /**
  * Supported Feature Control States.
@@ -140,6 +163,85 @@ data class EconomyConfig(
     val rewardedAdDailyCap: Int = 5,
     val rewardedAdCooldownSeconds: Int = 300,
     val updatedAt: Long = 0L
+) {
+    companion object {
+        val CANONICAL_SKUS = setOf("pro_lite_1d", "pro_lite_7d", "pro_lite_10d", "pro_30d")
+
+        fun validateRedemptionCosts(costs: Map<String, Long>): List<String> {
+            val errors = mutableListOf<String>()
+            for ((sku, cost) in costs) {
+                if (!CANONICAL_SKUS.contains(sku)) {
+                    errors.add("Unknown or non-canonical SKU: '$sku'. Only canonical SKUs are permitted ($CANONICAL_SKUS)")
+                }
+                if (cost <= 0L) {
+                    errors.add("Points cost for '$sku' must be strictly positive (got $cost)")
+                }
+            }
+            CANONICAL_SKUS.forEach { requiredSku ->
+                if (!costs.containsKey(requiredSku)) {
+                    errors.add("Missing price for canonical SKU: '$requiredSku'")
+                }
+            }
+            return errors
+        }
+
+        fun validateDailyLoginRewards(rewards: List<Long>): List<String> {
+            val errors = mutableListOf<String>()
+            if (rewards.size != 7) {
+                errors.add("Daily login ladder must contain exactly 7 days (got ${rewards.size})")
+            }
+            rewards.forEachIndexed { index, reward ->
+                if (reward < 0L) {
+                    errors.add("Reward for Day ${index + 1} cannot be negative (got $reward)")
+                }
+            }
+            return errors
+        }
+
+        fun validateRewardedAds(points: Long, dailyCap: Int, cooldownSeconds: Int): List<String> {
+            val errors = mutableListOf<String>()
+            if (points < 0L) errors.add("Rewarded ad points cannot be negative ($points)")
+            if (dailyCap < 0) errors.add("Daily ad cap cannot be negative ($dailyCap)")
+            if (cooldownSeconds < 0) errors.add("Ad cooldown seconds cannot be negative ($cooldownSeconds)")
+            return errors
+        }
+    }
+}
+
+/**
+ * Canonical Task Types.
+ */
+object TaskTypes {
+    const val CUSTOM = "CUSTOM"
+    const val WATCH_VIDEO = "WATCH_VIDEO"
+    const val FOLLOW_SOCIAL = "FOLLOW_SOCIAL"
+    const val SURVEY = "SURVEY"
+    const val SHARE_APP = "SHARE_APP"
+
+    val ALL = listOf(CUSTOM, WATCH_VIDEO, FOLLOW_SOCIAL, SURVEY, SHARE_APP)
+}
+
+/**
+ * Leaderboard Entry for Current Weekly Leaderboard.
+ */
+@IgnoreExtraProperties
+data class LeaderboardEntry(
+    val rank: Int = 0,
+    val userId: String = "",
+    val displayName: String = "",
+    val points: Long = 0L,
+    val avatarUrl: String = ""
+)
+
+/**
+ * Weekly Leaderboard Snapshot (/leaderboard/weekly_current).
+ * Strictly Read-Only in Admin App.
+ */
+@IgnoreExtraProperties
+data class WeeklyLeaderboard(
+    val cycleId: String = "WEEKLY_CURRENT",
+    val updatedAt: Long = 0L,
+    val rankings: List<LeaderboardEntry> = emptyList()
 )
 
 /**
