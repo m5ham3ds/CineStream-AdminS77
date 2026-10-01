@@ -12,16 +12,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
-    // Official authoritative check against /admins/{uid} collection + Owner bootstrap + Users role
+    // Official authoritative check against /admins/{uid} collection + Owner bootstrap
     function isAdmin() {
       return isAuthenticated() && (
         (request.auth.token.email != null && request.auth.token.email.matches('(?i)sulopros01@gmail.com')) ||
         (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin', 'owner'] ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true))
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true)
       );
     }
 
@@ -31,12 +27,20 @@ service cloud.firestore {
         'role',
         'isPremium',
         'subscriptionTier',
+        'planId',
+        'durationDays',
         'subscriptionStatus',
+        'subscriptionSource',
+        'subscriptionReferenceId',
+        'subscriptionStartedAt',
         'subscriptionExpiresAt',
         'isPro',
         'proExpiresAt',
         'proPlan',
         'plan',
+        'pointsBalance',
+        'totalPointsEarned',
+        'totalPointsSpent',
         'isActive',
         'isBanned',
         'banReason',
@@ -78,13 +82,21 @@ service cloud.firestore {
         (!('admin' in data) || data.admin == false) &&
         (!('isAdmin' in data) || data.isAdmin == false) &&
         (!('isPremium' in data) || data.isPremium == false) &&
-        (!('subscriptionTier' in data) || data.subscriptionTier == 'free') &&
-        (!('subscriptionStatus' in data) || data.subscriptionStatus == 'active' || data.subscriptionStatus == 'free') &&
+        (!('subscriptionTier' in data) || data.subscriptionTier in ['free', 'FREE']) &&
+        (!('planId' in data) || data.planId in ['free', '']) &&
+        (!('durationDays' in data) || data.durationDays == null) &&
+        (!('subscriptionStatus' in data) || data.subscriptionStatus in ['active', 'ACTIVE', 'free', 'FREE']) &&
+        (!('subscriptionSource' in data) || data.subscriptionSource in ['legacy', 'LEGACY', 'free', 'FREE', '']) &&
+        (!('subscriptionReferenceId' in data) || data.subscriptionReferenceId == null) &&
+        (!('subscriptionStartedAt' in data) || data.subscriptionStartedAt == null) &&
         (!('subscriptionExpiresAt' in data) || data.subscriptionExpiresAt == null) &&
         (!('isPro' in data) || data.isPro == false) &&
         (!('proExpiresAt' in data) || data.proExpiresAt == null) &&
         (!('proPlan' in data) || data.proPlan == null || data.proPlan == '') &&
-        (!('plan' in data) || data.plan == 'free' || data.plan == null) &&
+        (!('plan' in data) || data.plan in ['free', '', null]) &&
+        (!('pointsBalance' in data) || data.pointsBalance == 0) &&
+        (!('totalPointsEarned' in data) || data.totalPointsEarned == 0) &&
+        (!('totalPointsSpent' in data) || data.totalPointsSpent == 0) &&
         (!('isActive' in data) || data.isActive == true) &&
         (!('isBanned' in data) || data.isBanned == false) &&
         (!('banReason' in data) || data.banReason == null || data.banReason == '') &&
@@ -132,10 +144,25 @@ service cloud.firestore {
       // Delete: Only admins can delete user records
       allow delete: if isAdmin();
 
-      // User subcollections (history, bookmarks, devices, favorites, etc.)
+      // Immutable Point Transaction Ledger (Phase 03A.1)
+      match /point_transactions/{txId} {
+        // Users can only read their own ledger; only admins/trusted system can write/update/delete
+        allow read: if isAdmin() || isOwner(userId);
+        allow write: if isAdmin();
+      }
+
+      // Task Claims (Phase 03A.1)
+      match /task_claims/{taskId} {
+        // Users can only read their own claims; direct client rewards or claims are denied
+        allow read: if isAdmin() || isOwner(userId);
+        allow write: if isAdmin();
+      }
+
+      // General user subcollections (history, bookmarks, devices, favorites, etc.)
+      // Excludes immutable point_transactions and server-settled task_claims
       match /{subcollection}/{docId} {
         allow read: if isAdmin() || isOwner(userId);
-        allow write: if isAdmin() || isOwner(userId);
+        allow write: if isAdmin() || (isOwner(userId) && !(subcollection in ['point_transactions', 'task_claims']));
       }
     }
 
@@ -155,9 +182,48 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- System Feature Control Flags (Phase 03A.1) ---
+    match /config/features {
+      // Authenticated users (Users App & Admin App) can read feature flags
+      allow read: if isAuthenticated();
+      // Only authoritative admins can modify system feature control
+      allow write: if isAdmin();
+    }
+
+    // --- System Economy Configuration & Redemption Pricing (Phase 03A.1) ---
+    match /config/economy {
+      // Authenticated users (Users App & Admin App) can read economy parameters
+      allow read: if isAuthenticated();
+      // Only authoritative admins can modify economy configuration
+      allow write: if isAdmin();
+    }
+
     // Deny all other unspecified /config documents
     match /config/{document=**} {
       allow read, write: if false;
+    }
+
+    // --- Reward Tasks Catalog (Phase 03A.1) ---
+    match /reward_tasks/{taskId} {
+      // Authenticated users can view available reward tasks
+      allow read: if isAuthenticated();
+      // Only authoritative admins can create, update, or delete tasks
+      allow write: if isAdmin();
+    }
+
+    // --- Leaderboard & History (Phase 03A.1) ---
+    match /leaderboard/weekly_current {
+      // Authenticated users can view current weekly rankings
+      allow read: if isAuthenticated();
+      // Only authoritative admins or trusted backend settlement can write
+      allow write: if isAdmin();
+    }
+
+    match /leaderboard_history/{cycleId} {
+      // Authenticated users can view historical leaderboard archives
+      allow read: if isAuthenticated();
+      // Only authoritative admins or trusted backend settlement can archive
+      allow write: if isAdmin();
     }
 
     // --- Managed Extensions (Canonical v1) ---

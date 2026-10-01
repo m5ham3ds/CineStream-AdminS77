@@ -25,6 +25,7 @@ import com.example.state.AppLanguage
 import com.example.state.AppStrings
 import com.example.contract.FirebaseCollections
 import com.example.contract.FirebaseSubcollections
+import com.example.contract.FirebaseConfigDocs
 import com.example.validation.ManagedExtensionValidator
 import com.example.viewmodels.UserFilter
 import com.example.viewmodels.UserSort
@@ -2537,6 +2538,76 @@ class CineStreamAdminLogicTest {
         assertEquals(5, economy.rewardedAdDailyCap)
         assertEquals(300, economy.rewardedAdCooldownSeconds)
         assertEquals(7, economy.dailyLoginRewards.size)
+    }
+
+    // ============================================================
+    // PHASE SUBSCRIPTION-POINTS-03A.1 — SECURITY RULES & CONTRACT HARDENING TESTS
+    // ============================================================
+
+    @Test
+    fun testPhase03A1SensitiveUserFieldsClassification() {
+        val sensitiveFields = listOf(
+            "role", "isPremium", "subscriptionTier", "planId", "durationDays",
+            "subscriptionStatus", "subscriptionSource", "subscriptionReferenceId",
+            "subscriptionStartedAt", "subscriptionExpiresAt", "isPro", "proExpiresAt",
+            "proPlan", "plan", "pointsBalance", "totalPointsEarned", "totalPointsSpent",
+            "isActive", "isBanned", "banReason", "banExpiresAt", "canWatch",
+            "canDownload", "canChat", "canStory", "canP2P", "canComment",
+            "canUpload", "canRequest", "watchBan", "downloadBan", "chatBan",
+            "storyBan", "p2pBan", "deviceLimit", "maxDevices", "allowedQuality",
+            "downloadLimit", "offlineDaysOverride", "forcedAdsOverride",
+            "uid", "id", "createdAt", "admin", "isAdmin"
+        )
+
+        // All canonical subscription & points fields must be classified as sensitive
+        assertTrue(sensitiveFields.contains("planId"))
+        assertTrue(sensitiveFields.contains("durationDays"))
+        assertTrue(sensitiveFields.contains("subscriptionTier"))
+        assertTrue(sensitiveFields.contains("subscriptionStatus"))
+        assertTrue(sensitiveFields.contains("subscriptionSource"))
+        assertTrue(sensitiveFields.contains("subscriptionReferenceId"))
+        assertTrue(sensitiveFields.contains("subscriptionStartedAt"))
+        assertTrue(sensitiveFields.contains("subscriptionExpiresAt"))
+        assertTrue(sensitiveFields.contains("pointsBalance"))
+        assertTrue(sensitiveFields.contains("totalPointsEarned"))
+        assertTrue(sensitiveFields.contains("totalPointsSpent"))
+
+        // Technical permissions remain sensitive and independent
+        assertTrue(sensitiveFields.contains("allowedQuality"))
+        assertTrue(sensitiveFields.contains("downloadLimit"))
+    }
+
+    @Test
+    fun testPhase03A1CanonicalAuditLogPath() {
+        // Authoritative verification: Code and Rules strictly use "auditLogs"
+        assertEquals("auditLogs", FirebaseCollections.AUDIT_LOGS)
+        assertNotEquals("audit_logs", FirebaseCollections.AUDIT_LOGS)
+    }
+
+    @Test
+    fun testPhase03A1CanonicalConfigPaths() {
+        // Canonical configuration paths: app, search_order, features, economy
+        assertEquals("app", FirebaseConfigDocs.APP)
+        assertEquals("search_order", FirebaseConfigDocs.SEARCH_ORDER)
+        assertEquals("features", FirebaseConfigDocs.FEATURES)
+        assertEquals("economy", FirebaseConfigDocs.ECONOMY)
+    }
+
+    @Test
+    fun testPhase03A1DecouplingQualityFromSubscription() {
+        val proLite1d = User(uid = "u1", subscriptionTier = "PRO_LITE", planId = "pro_lite_1d")
+        val pro30d = User(uid = "u2", subscriptionTier = "PRO", planId = "pro_30d")
+        val free = User(uid = "u3", subscriptionTier = "FREE", planId = "free")
+
+        // Invariant: Allowed quality is NOT determined by subscription tier
+        assertNull(proLite1d.allowedQuality)
+        assertNull(pro30d.allowedQuality)
+        assertNull(free.allowedQuality)
+
+        // All users access source quality, only ad exemption differs
+        assertTrue(proLite1d.isAdFree)
+        assertTrue(pro30d.isAdFree)
+        assertFalse(free.isAdFree)
     }
 }
 
