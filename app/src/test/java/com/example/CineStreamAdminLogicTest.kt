@@ -26,6 +26,7 @@ import com.example.state.AppStrings
 import com.example.contract.FirebaseCollections
 import com.example.contract.FirebaseSubcollections
 import com.example.contract.FirebaseConfigDocs
+import com.example.repository.AdminRepository
 import com.example.validation.ManagedExtensionValidator
 import com.example.viewmodels.UserFilter
 import com.example.viewmodels.UserSort
@@ -2713,6 +2714,92 @@ class CineStreamAdminLogicTest {
         assertEquals(FeatureState.ACTIVE, config.rewardedAds.state)
         assertEquals(FeatureState.ACTIVE, config.tasks.state)
         assertEquals(FeatureState.ACTIVE, config.leaderboard.state)
+    }
+
+    @Test
+    fun testPhase05AAdminAuthorityMatrix() {
+        // CASE 1: Owner email correct => Admin = TRUE
+        val case1 = AdminRepository.evaluateAdminAuthority(
+            email = "sulopros01@gmail.com",
+            adminDocExists = false,
+            adminDocEnabled = null
+        )
+        assertTrue("CASE 1: Owner email must grant admin authority", case1)
+
+        val case1CaseInsensitive = AdminRepository.evaluateAdminAuthority(
+            email = "SuloPros01@gmail.com",
+            adminDocExists = false,
+            adminDocEnabled = null
+        )
+        assertTrue("CASE 1: Owner email must be case-insensitive", case1CaseInsensitive)
+
+        // CASE 2: User has /admins/{uid}.enabled == true => Admin = TRUE
+        val case2 = AdminRepository.evaluateAdminAuthority(
+            email = "moderator@example.com",
+            adminDocExists = true,
+            adminDocEnabled = true
+        )
+        assertTrue("CASE 2: User with /admins/{uid}.enabled == true must be Admin", case2)
+
+        // CASE 3: User has /admins/{uid}.enabled == false => Admin = FALSE
+        val case3 = AdminRepository.evaluateAdminAuthority(
+            email = "revoked@example.com",
+            adminDocExists = true,
+            adminDocEnabled = false
+        )
+        assertFalse("CASE 3: User with /admins/{uid}.enabled == false must NOT be Admin", case3)
+
+        // CASE 4: User has no /admins/{uid} doc => Admin = FALSE
+        val case4 = AdminRepository.evaluateAdminAuthority(
+            email = "regular@example.com",
+            adminDocExists = false,
+            adminDocEnabled = null
+        )
+        assertFalse("CASE 4: User without /admins/{uid} document must NOT be Admin", case4)
+
+        // CASE 5: User has /users/{uid}.role == "admin" but no /admins/{uid}.enabled == true => Admin = FALSE
+        val case5 = AdminRepository.evaluateAdminAuthority(
+            email = "imposter_admin@example.com",
+            adminDocExists = false,
+            adminDocEnabled = null,
+            userRole = "admin"
+        )
+        assertFalse("CASE 5: /users/{uid}.role == 'admin' without /admins doc must NOT be Admin", case5)
+
+        val case5WithDisabledAdmin = AdminRepository.evaluateAdminAuthority(
+            email = "imposter_admin2@example.com",
+            adminDocExists = true,
+            adminDocEnabled = false,
+            userRole = "admin"
+        )
+        assertFalse("CASE 5: /users/{uid}.role == 'admin' with disabled /admins doc must NOT be Admin", case5WithDisabledAdmin)
+
+        // CASE 6: User has /users/{uid}.role == "superadmin" but no /admins/{uid}.enabled == true => Admin = FALSE
+        val case6 = AdminRepository.evaluateAdminAuthority(
+            email = "imposter_superadmin@example.com",
+            adminDocExists = false,
+            adminDocEnabled = null,
+            userRole = "superadmin"
+        )
+        assertFalse("CASE 6: /users/{uid}.role == 'superadmin' without /admins doc must NOT be Admin", case6)
+
+        // CASE 7: User has /users/{uid}.role == "owner" but no /admins/{uid}.enabled == true => Admin = FALSE
+        val case7 = AdminRepository.evaluateAdminAuthority(
+            email = "imposter_owner@example.com",
+            adminDocExists = false,
+            adminDocEnabled = null,
+            userRole = "owner"
+        )
+        assertFalse("CASE 7: /users/{uid}.role == 'owner' without /admins doc must NOT be Admin", case7)
+
+        // Additional Negative Cases: user-level isAdmin flags must have zero authority
+        val caseUserIsAdminFlag = AdminRepository.evaluateAdminAuthority(
+            email = "flag_user@example.com",
+            adminDocExists = false,
+            adminDocEnabled = null,
+            userIsAdmin = true
+        )
+        assertFalse("User-level isAdmin flag must NEVER grant admin authority", caseUserIsAdminFlag)
     }
 }
 

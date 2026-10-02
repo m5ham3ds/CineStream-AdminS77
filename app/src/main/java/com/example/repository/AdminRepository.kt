@@ -187,16 +187,42 @@ class AdminRepository {
         }
     }
 
+    companion object {
+        const val OWNER_EMAIL = "sulopros01@gmail.com"
+
+        /**
+         * Pure canonical authority evaluation matching firestore.rules isAdmin() logic.
+         * Used for deterministic unit testing and verification across the 7 matrix cases.
+         */
+        fun evaluateAdminAuthority(
+            email: String?,
+            adminDocExists: Boolean,
+            adminDocEnabled: Boolean?,
+            userRole: String? = null,
+            userIsAdmin: Boolean? = null
+        ): Boolean {
+            // Rule 1: Project Owner Email (Bootstrap Authority)
+            val isOwner = email?.equals(OWNER_EMAIL, ignoreCase = true) == true
+            if (isOwner) return true
+
+            // Rule 2: /admins/{uid}.enabled == true (Firestore Authority)
+            // Note: userRole and userIsAdmin parameters are deliberately ignored to enforce canonical rules
+            return adminDocExists && (adminDocEnabled == true)
+        }
+    }
+
     /**
      * Verifies if the authenticated user is an authorized administrator.
      * Enforces the Canonical Firebase Contract:
-     * - The sole authority source is `/admins/{uid}` where `enabled == true`.
-     * - Fallback to `/users/{uid}.role` is STRICTLY REMOVED to align with firestore.rules.
+     * - The sole authoritative sources are:
+     *   1) Project Owner Bootstrap Email ("sulopros01@gmail.com")
+     *   2) Canonical Firestore document `/admins/{uid}` where `enabled == true`.
+     * - Fallback to `/users/{uid}.role` or `users.isAdmin` is STRICTLY REMOVED to align 100% with firestore.rules.
      * - Provisions bootstrap superadmin credentials for the project owner.
      */
     suspend fun checkIsAdmin(user: FirebaseUser): Boolean {
         // Instant check for project owner: always granted superadmin
-        val isOwner = user.email?.equals("sulopros01@gmail.com", ignoreCase = true) == true
+        val isOwner = user.email?.equals(OWNER_EMAIL, ignoreCase = true) == true
         if (isOwner) {
             AppLogger.i("AdminRepository", "Project owner authenticated: ${user.email}")
             AppSettings.setAdminSession(user.uid, user.email ?: "")
@@ -218,13 +244,7 @@ class AdminRepository {
             return true
         }
 
-        // Instant verification if the user already has an active local admin session
-        if (AppSettings.hasActiveAdminSession(user.uid)) {
-            AppLogger.i("AdminRepository", "User verified via active local admin session: ${user.uid}")
-            return true
-        }
-
-        // Check /admins/{uid} in Firestore with short timeout falling back to local cache
+        // Check canonical /admins/{uid} in Firestore with short timeout falling back to local cache
         try {
             val adminDoc = try {
                 withTimeoutOrNull(2500L) {
@@ -243,40 +263,17 @@ class AdminRepository {
                 if (enabled) {
                     AppSettings.setAdminSession(user.uid, user.email ?: "")
                     return true
+                } else {
+                    AppSettings.clearAdminSession()
+                    return false
                 }
             }
         } catch (e: Exception) {
             AppLogger.w("AdminRepository", "Admin collection check notice: ${e.message}")
         }
 
-        // Also verify /users/{uid} in Firestore (admin/superadmin role or isAdmin flag)
-        try {
-            val userDoc = try {
-                withTimeoutOrNull(2500L) {
-                    usersCollection.document(user.uid).get(Source.SERVER).await()
-                } ?: usersCollection.document(user.uid).get(Source.CACHE).await()
-            } catch (e: Exception) {
-                try {
-                    usersCollection.document(user.uid).get(Source.CACHE).await()
-                } catch (_: Exception) {
-                    null
-                }
-            }
-
-            if (userDoc != null && userDoc.exists()) {
-                val role = userDoc.getString("role")?.lowercase()
-                val isAdmin = userDoc.getBoolean("isAdmin") == true ||
-                        userDoc.getBoolean("admin") == true ||
-                        role in listOf("admin", "superadmin", "owner")
-                if (isAdmin) {
-                    AppSettings.setAdminSession(user.uid, user.email ?: "")
-                    return true
-                }
-            }
-        } catch (e: Exception) {
-            AppLogger.w("AdminRepository", "User role check notice: ${e.message}")
-        }
-
+        // Strictly NO fallback to /users/{uid}.role or users.isAdmin
+        AppSettings.clearAdminSession()
         return false
     }
 
