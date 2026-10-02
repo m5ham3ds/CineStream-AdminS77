@@ -1,5 +1,5 @@
 {
-  "name": "CineStream AdminS",
+  "name": "CineStream Admin",
   "description": "A Jetpack Compose admin panel to manage CineStream users, streaming sources, moderation, DRM settings, and real-time push notifications.",
   "requestFramePermissions": [],
   "majorCapabilities": [

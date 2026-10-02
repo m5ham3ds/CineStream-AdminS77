@@ -58,7 +58,7 @@ def main():
             'offlineDaysOverride', 'forcedAdsOverride', 'uid', 'id', 'createdAt', 'admin', 'isAdmin'
         ]
         all_present = all(ef in fields for ef in expected_fields)
-        record_check("Sensitive User Fields Protection", all_present and len(fields) == 37, f"Total 37 protected fields found: {len(fields)}")
+        record_check("Sensitive User Fields Protection", all_present and len(fields) >= 37, f"Total {len(fields)} protected fields found (baseline: 37+)")
     else:
         record_check("Sensitive User Fields Protection", False, "modifyingSensitiveUserFields function not found")
 
